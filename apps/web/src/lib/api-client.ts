@@ -163,6 +163,8 @@ export interface AttendanceReportItem {
     id: string;
     type: string;
     occurredAt: string;
+    latitude: number | null;
+    longitude: number | null;
     accuracyMeters: number | null;
     distanceMeters: number | null;
     decision: string | null;
@@ -171,6 +173,8 @@ export interface AttendanceReportItem {
     id: string;
     type: string;
     occurredAt: string;
+    latitude: number | null;
+    longitude: number | null;
     accuracyMeters: number | null;
     distanceMeters: number | null;
     decision: string | null;

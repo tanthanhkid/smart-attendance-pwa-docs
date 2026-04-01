@@ -46,6 +46,8 @@ type AttendanceReportEvent = {
   id: string;
   type: string;
   occurredAt: Date;
+  latitude: number | null;
+  longitude: number | null;
   accuracyMeters: number | null;
   distanceMeters: number | null;
   decision: string | null;
@@ -83,8 +85,33 @@ export interface AttendanceReportItem {
 export class ReportsService {
   constructor(private prisma: PrismaService) {}
 
-  private mapReviewEvent(event: AttendanceReportEvent | undefined): AttendanceReportEvent | null {
-    return event ?? null;
+  private toCoordinate(value: Prisma.Decimal | number | null): number | null {
+    if (value === null) {
+      return null;
+    }
+
+    return typeof value === 'number' ? value : value.toNumber();
+  }
+
+  private mapReviewEvent(event: {
+    id: string;
+    type: string;
+    occurredAt: Date;
+    latitude: Prisma.Decimal | number | null;
+    longitude: Prisma.Decimal | number | null;
+    accuracyMeters: number | null;
+    distanceMeters: number | null;
+    decision: string | null;
+  } | undefined): AttendanceReportEvent | null {
+    if (!event) {
+      return null;
+    }
+
+    return {
+      ...event,
+      latitude: this.toCoordinate(event.latitude),
+      longitude: this.toCoordinate(event.longitude),
+    };
   }
 
   private mapReportSession(session: {
@@ -102,7 +129,16 @@ export class ReportsService {
     employee: AttendanceReportEmployee;
     branch: AttendanceReportBranch;
     flags: AttendanceReportFlag[];
-    events: AttendanceReportEvent[];
+    events: Array<{
+      id: string;
+      type: string;
+      occurredAt: Date;
+      latitude: Prisma.Decimal | number | null;
+      longitude: Prisma.Decimal | number | null;
+      accuracyMeters: number | null;
+      distanceMeters: number | null;
+      decision: string | null;
+    }>;
   }): AttendanceReportItem {
     const checkInEvent = this.mapReviewEvent(
       session.events.find((event) => event.type === 'CHECK_IN'),
@@ -253,6 +289,8 @@ export class ReportsService {
               id: true,
               type: true,
               occurredAt: true,
+              latitude: true,
+              longitude: true,
               accuracyMeters: true,
               distanceMeters: true,
               decision: true,

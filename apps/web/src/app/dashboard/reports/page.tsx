@@ -6,7 +6,7 @@ import type { AttendanceReportItem, BranchListItem } from '@/lib/api-client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, Filter, RefreshCw } from 'lucide-react';
+import { Download, ExternalLink, Filter, RefreshCw } from 'lucide-react';
 
 function todayIso() {
   return new Date().toISOString().split('T')[0] ?? '';
@@ -34,6 +34,19 @@ function formatDateTime(date: string | null) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(date));
+}
+
+function formatCoordinate(value: number | null | undefined) {
+  if (typeof value !== 'number') return null;
+  return value.toFixed(6);
+}
+
+function createGoogleMapsUrl(latitude: number | null | undefined, longitude: number | null | undefined) {
+  if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+    return null;
+  }
+
+  return `https://www.google.com/maps?q=${latitude},${longitude}`;
 }
 
 export default function DashboardReportsPage() {
@@ -259,7 +272,7 @@ export default function DashboardReportsPage() {
               <table className="min-w-full divide-y divide-slate-200 text-sm">
                 <thead className="bg-slate-50">
                   <tr>
-                    {['Ngày', 'Nhân viên', 'Chi nhánh', 'Check-in', 'Check-out', 'Trạng thái', 'Review'].map((header) => (
+                    {['Ngày', 'Nhân viên', 'Chi nhánh', 'Check-in', 'Check-out', 'Google Maps', 'Trạng thái', 'Review'].map((header) => (
                       <th key={header} className="px-4 py-3 text-left font-semibold text-slate-700">
                         {header}
                       </th>
@@ -277,6 +290,12 @@ export default function DashboardReportsPage() {
                       <td className="px-4 py-3 text-slate-700">{item.branch.code}</td>
                       <td className="px-4 py-3 text-slate-700">{formatDateTime(item.checkInAt)}</td>
                       <td className="px-4 py-3 text-slate-700">{formatDateTime(item.checkOutAt)}</td>
+                      <td className="px-4 py-3">
+                        <div className="space-y-2 text-xs text-slate-600">
+                          <EventMapLink label="Check-in" event={item.checkInEvent} />
+                          <EventMapLink label="Check-out" event={item.checkOutEvent} />
+                        </div>
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-2">
                           <Badge variant={item.recorded ? 'outline' : 'secondary'}>
@@ -313,5 +332,47 @@ function SummaryCard({ title, value }: { title: string; value: number }) {
         <p className="mt-1 text-3xl font-semibold text-slate-950">{value}</p>
       </CardContent>
     </Card>
+  );
+}
+
+function EventMapLink({
+  label,
+  event,
+}: {
+  label: string;
+  event:
+    | {
+        latitude: number | null;
+        longitude: number | null;
+      }
+    | null
+    | undefined;
+}) {
+  const latitude = formatCoordinate(event?.latitude);
+  const longitude = formatCoordinate(event?.longitude);
+  const mapUrl = createGoogleMapsUrl(event?.latitude, event?.longitude);
+
+  return (
+    <div className="rounded-xl bg-slate-50 px-3 py-2">
+      <p className="font-medium text-slate-700">{label}</p>
+      {latitude && longitude ? (
+        <>
+          <p className="mt-1 text-slate-500">
+            {latitude}, {longitude}
+          </p>
+          <a
+            href={mapUrl ?? '#'}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 inline-flex items-center gap-1 font-medium text-blue-600 hover:text-blue-700"
+          >
+            Mở Google Maps
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        </>
+      ) : (
+        <p className="mt-1 text-slate-400">Không có tọa độ</p>
+      )}
+    </div>
   );
 }
