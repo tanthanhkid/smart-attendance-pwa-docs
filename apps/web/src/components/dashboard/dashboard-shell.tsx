@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/lib';
-import { Building2, FileText, LayoutDashboard, ListChecks, LogOut, Settings2, TimerReset } from 'lucide-react';
+import { FileText, LayoutDashboard, ListChecks, LogOut, Settings2, TimerReset } from 'lucide-react';
 
 const baseNavItems = [
   { href: '/dashboard', label: 'Tổng quan', icon: LayoutDashboard },
@@ -105,13 +105,6 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                   </Link>
                 );
               })}
-              <Link
-                href="/attendance"
-                className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-medium text-cyan-900 transition hover:bg-cyan-100"
-              >
-                <Building2 className="h-4 w-4" />
-                App nhân viên
-              </Link>
             </div>
           </div>
         </div>

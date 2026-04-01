@@ -1,21 +1,23 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { apiClient, useAuthStore } from '@/lib';
+import { apiClient, toLocalDateInputValue, useAuthStore } from '@/lib';
 import type { AttendanceReportItem, BranchListItem } from '@/lib/api-client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Download, ExternalLink, Filter, RefreshCw } from 'lucide-react';
 
+const REPORT_PAGE_SIZE = 1000;
+
 function todayIso() {
-  return new Date().toISOString().split('T')[0] ?? '';
+  return toLocalDateInputValue();
 }
 
 function defaultFromIso() {
   const date = new Date();
   date.setDate(date.getDate() - 30);
-  return date.toISOString().split('T')[0] ?? '';
+  return toLocalDateInputValue(date);
 }
 
 function formatDate(date: string) {
@@ -47,6 +49,50 @@ function createGoogleMapsUrl(latitude: number | null | undefined, longitude: num
   }
 
   return `https://www.google.com/maps?q=${latitude},${longitude}`;
+}
+
+async function fetchAllAttendanceReports(params: {
+  from: string;
+  to: string;
+  branchId?: string;
+  status?: string;
+  needsReview?: boolean;
+  recorded?: boolean;
+  flagged?: boolean;
+}) {
+  const firstPage = await apiClient.getAttendanceReport({
+    ...params,
+    page: 1,
+    pageSize: REPORT_PAGE_SIZE,
+  });
+
+  const items = [...firstPage.items];
+  for (let page = 2; page <= firstPage.totalPages; page++) {
+    const response = await apiClient.getAttendanceReport({
+      ...params,
+      page,
+      pageSize: REPORT_PAGE_SIZE,
+    });
+    items.push(...response.items);
+  }
+
+  return {
+    ...firstPage,
+    items,
+  };
+}
+
+async function fetchAllBranches() {
+  const items: BranchListItem[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const response = await apiClient.getBranches({ cursor, limit: 100 });
+    items.push(...response.items);
+    cursor = response.hasMore ? response.nextCursor : undefined;
+  } while (cursor);
+
+  return items;
 }
 
 export default function DashboardReportsPage() {
@@ -84,21 +130,19 @@ export default function DashboardReportsPage() {
 
     try {
       const [reportResponse, branchResponse] = await Promise.all([
-        apiClient.getAttendanceReport({
+        fetchAllAttendanceReports({
           from: filters.from,
           to: filters.to,
           branchId: activeBranchId || undefined,
           status: filters.status || undefined,
           ...reviewQuery,
-          page: 1,
-          pageSize: 50,
         }),
-        isAdmin ? apiClient.getBranches({ limit: 50 }) : Promise.resolve({ items: [] }),
+        isAdmin ? fetchAllBranches() : Promise.resolve([]),
       ]);
 
       setItems(reportResponse.items);
       setTotal(reportResponse.total);
-      setBranches(branchResponse.items);
+      setBranches(branchResponse);
     } catch (loadError) {
       setError(
         loadError instanceof Error
@@ -133,6 +177,8 @@ export default function DashboardReportsPage() {
         to: filters.to,
         branchId: activeBranchId || undefined,
         departmentId: undefined,
+        status: filters.status || undefined,
+        ...reviewQuery,
       });
 
       const url = window.URL.createObjectURL(blob);

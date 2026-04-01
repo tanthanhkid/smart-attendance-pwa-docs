@@ -32,6 +32,10 @@ export class ReportsController {
     to: string;
     branchId?: string;
     departmentId?: string;
+    status?: string;
+    needsReview?: boolean;
+    recorded?: boolean;
+    flagged?: boolean;
   }): string {
     const query = new URLSearchParams({
       from: params.from,
@@ -43,6 +47,18 @@ export class ReportsController {
     }
     if (params.departmentId) {
       query.set('departmentId', params.departmentId);
+    }
+    if (params.status) {
+      query.set('status', params.status);
+    }
+    if (params.needsReview !== undefined) {
+      query.set('needsReview', String(params.needsReview));
+    }
+    if (params.recorded !== undefined) {
+      query.set('recorded', String(params.recorded));
+    }
+    if (params.flagged !== undefined) {
+      query.set('flagged', String(params.flagged));
     }
 
     const apiPrefix = process.env.API_PREFIX || 'api';
@@ -86,6 +102,9 @@ export class ReportsController {
     @Query('pageSize') pageSize?: number,
   ) {
     const effectiveBranchId = this.resolveManagerBranchId(role, employee, branchId);
+    const parsedNeedsReview = this.parseBooleanQuery(needsReview);
+    const parsedRecorded = this.parseBooleanQuery(recorded);
+    const parsedFlagged = this.parseBooleanQuery(flagged);
     return this.reportsService.getAttendanceReport({
       from: new Date(from),
       to: new Date(to),
@@ -94,9 +113,9 @@ export class ReportsController {
       employeeId,
       scopeManagerUserId: role === UserRole.MANAGER ? userId : undefined,
       status: isEnumValue(AttendanceStatus, status) ? status : undefined,
-      needsReview: this.parseBooleanQuery(needsReview),
-      recorded: this.parseBooleanQuery(recorded),
-      flagged: this.parseBooleanQuery(flagged),
+      needsReview: parsedNeedsReview,
+      recorded: parsedRecorded,
+      flagged: parsedFlagged,
       page: page ?? 1,
       pageSize: pageSize ?? 50,
     });
@@ -114,14 +133,25 @@ export class ReportsController {
     @Query('to') to: string,
     @Query('branchId') branchId?: string,
     @Query('departmentId') departmentId?: string,
+    @Query('status') status?: string,
+    @Query('needsReview') needsReview?: string,
+    @Query('recorded') recorded?: string,
+    @Query('flagged') flagged?: string,
   ) {
     const effectiveBranchId = this.resolveManagerBranchId(role, employee, branchId);
+    const parsedNeedsReview = this.parseBooleanQuery(needsReview);
+    const parsedRecorded = this.parseBooleanQuery(recorded);
+    const parsedFlagged = this.parseBooleanQuery(flagged);
     const result = await this.reportsService.exportAttendance({
       from: new Date(from),
       to: new Date(to),
       branchId: effectiveBranchId,
       departmentId,
       scopeManagerUserId: role === UserRole.MANAGER ? userId : undefined,
+      status: isEnumValue(AttendanceStatus, status) ? status : undefined,
+      needsReview: parsedNeedsReview,
+      recorded: parsedRecorded,
+      flagged: parsedFlagged,
     });
 
     return {
@@ -136,6 +166,10 @@ export class ReportsController {
         to,
         branchId: effectiveBranchId,
         departmentId,
+        status: isEnumValue(AttendanceStatus, status) ? status : undefined,
+        needsReview: parsedNeedsReview,
+        recorded: parsedRecorded,
+        flagged: parsedFlagged,
       }),
     };
   }
@@ -152,15 +186,26 @@ export class ReportsController {
     @Query('to') to: string,
     @Query('branchId') branchId?: string,
     @Query('departmentId') departmentId?: string,
+    @Query('status') status?: string,
+    @Query('needsReview') needsReview?: string,
+    @Query('recorded') recorded?: string,
+    @Query('flagged') flagged?: string,
     @Res({ passthrough: true }) response?: Response,
   ) {
     const effectiveBranchId = this.resolveManagerBranchId(role, employee, branchId);
+    const parsedNeedsReview = this.parseBooleanQuery(needsReview);
+    const parsedRecorded = this.parseBooleanQuery(recorded);
+    const parsedFlagged = this.parseBooleanQuery(flagged);
     const result = await this.reportsService.exportAttendance({
       from: new Date(from),
       to: new Date(to),
       branchId: effectiveBranchId,
       departmentId,
       scopeManagerUserId: role === UserRole.MANAGER ? userId : undefined,
+      status: isEnumValue(AttendanceStatus, status) ? status : undefined,
+      needsReview: parsedNeedsReview,
+      recorded: parsedRecorded,
+      flagged: parsedFlagged,
     });
 
     response?.setHeader('Content-Type', `${result.contentType}; charset=utf-8`);

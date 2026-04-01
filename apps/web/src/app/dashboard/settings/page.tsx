@@ -21,6 +21,8 @@ type EmployeeDraft = {
   managerUserId: string;
 };
 
+const PAGE_LIMIT = 100;
+
 function toText(value: number | string | null | undefined) {
   if (value === null || value === undefined) return '';
   return String(value);
@@ -32,6 +34,32 @@ function createBranchDraft(branch: BranchListItem): BranchDraft {
     centerLng: toText(branch.geofence?.centerLng ?? branch.longitude),
     radiusMeters: toText(branch.geofence?.radiusMeters ?? ''),
   };
+}
+
+async function fetchAllBranches() {
+  const items: BranchListItem[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const response = await apiClient.getBranches({ cursor, limit: PAGE_LIMIT });
+    items.push(...response.items);
+    cursor = response.hasMore ? response.nextCursor : undefined;
+  } while (cursor);
+
+  return items;
+}
+
+async function fetchAllEmployees() {
+  const items: EmployeeListItem[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const response = await apiClient.getEmployees({ cursor, limit: PAGE_LIMIT });
+    items.push(...response.items);
+    cursor = response.hasMore ? response.nextCursor : undefined;
+  } while (cursor);
+
+  return items;
 }
 
 export default function DashboardSettingsPage() {
@@ -69,19 +97,16 @@ export default function DashboardSettingsPage() {
     setError(null);
 
     try {
-      const [branchResponse, employeeResponse] = await Promise.all([
-        apiClient.getBranches({ limit: 100 }),
-        apiClient.getEmployees({ limit: 200 }),
-      ]);
+      const [branchItems, employeeItems] = await Promise.all([fetchAllBranches(), fetchAllEmployees()]);
 
-      setBranches(branchResponse.items);
-      setEmployees(employeeResponse.items);
+      setBranches(branchItems);
+      setEmployees(employeeItems);
       setBranchDrafts(
-        Object.fromEntries(branchResponse.items.map((branch) => [branch.id, createBranchDraft(branch)])),
+        Object.fromEntries(branchItems.map((branch) => [branch.id, createBranchDraft(branch)])),
       );
       setEmployeeDrafts(
         Object.fromEntries(
-          employeeResponse.items.map((employee) => [
+          employeeItems.map((employee) => [
             employee.id,
             {
               branchId: employee.branchId,

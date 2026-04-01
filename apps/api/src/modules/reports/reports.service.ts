@@ -320,18 +320,60 @@ export class ReportsService {
     };
   }
 
+  private async fetchAllAttendanceReportItems(params: {
+    from: Date;
+    to: Date;
+    branchId?: string;
+    departmentId?: string;
+    employeeId?: string;
+    scopeManagerUserId?: string;
+    status?: PrismaAttendanceStatus;
+    needsReview?: boolean;
+    recorded?: boolean;
+    flagged?: boolean;
+  }) {
+    const firstPage = await this.getAttendanceReport({
+      ...params,
+      page: 1,
+      pageSize: MAX_REPORT_PAGE_SIZE,
+    });
+
+    if (firstPage.totalPages <= 1) {
+      return firstPage;
+    }
+
+    const items = [...firstPage.items];
+    for (let page = 2; page <= firstPage.totalPages; page++) {
+      const nextPage = await this.getAttendanceReport({
+        ...params,
+        page,
+        pageSize: MAX_REPORT_PAGE_SIZE,
+      });
+      items.push(...nextPage.items);
+    }
+
+    return {
+      ...firstPage,
+      items,
+      page: 1,
+      pageSize: items.length,
+      totalPages: 1,
+    };
+  }
+
   async exportAttendance(params: {
     from: Date;
     to: Date;
     branchId?: string;
     departmentId?: string;
     scopeManagerUserId?: string;
+    employeeId?: string;
+    status?: PrismaAttendanceStatus;
+    needsReview?: boolean;
+    recorded?: boolean;
+    flagged?: boolean;
   }): Promise<AttendanceExportResponse> {
-    const sessions = await this.getAttendanceReport({
-      ...params,
-      page: 1,
-      pageSize: MAX_REPORT_PAGE_SIZE,
-    });
+    const sessions = await this.fetchAllAttendanceReportItems(params);
 
     const data = sessions.items.map((session) => ({
       date: formatDateISO(session.workDate),
@@ -355,8 +397,8 @@ export class ReportsService {
       csv: buildAttendanceCsv(data),
       total: sessions.total,
       returned: data.length,
-      truncated: sessions.total > data.length,
-      limit: MAX_REPORT_PAGE_SIZE,
+      truncated: false,
+      limit: data.length,
     };
   }
 }

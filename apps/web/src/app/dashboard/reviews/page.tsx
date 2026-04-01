@@ -2,15 +2,67 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiClient, useAuthStore } from '@/lib';
+import { apiClient, toLocalDateInputValue, useAuthStore } from '@/lib';
 import type { ApprovalRequestItem, AttendanceReportItem, BranchListItem } from '@/lib/api-client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, CheckCircle2, ClipboardList, RefreshCw, ShieldAlert } from 'lucide-react';
 
-function todayIso() {
-  return new Date().toISOString().split('T')[0] ?? '';
+const REVIEW_PAGE_SIZE = 1000;
+
+async function fetchAllBranches() {
+  const items: BranchListItem[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const response = await apiClient.getBranches({ cursor, limit: 100 });
+    items.push(...response.items);
+    cursor = response.hasMore ? response.nextCursor : undefined;
+  } while (cursor);
+
+  return items;
+}
+
+async function fetchAllApprovalRequests(branchId?: string) {
+  const items: ApprovalRequestItem[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const response = await apiClient.getApprovals({
+      status: 'PENDING',
+      branchId,
+      cursor,
+      limit: 100,
+    });
+    items.push(...response.items);
+    cursor = response.hasMore ? response.nextCursor : undefined;
+  } while (cursor);
+
+  return items;
+}
+
+async function fetchAllReviewItems(filters: { from: string; to: string; branchId?: string }) {
+  const items: AttendanceReportItem[] = [];
+  let page = 1;
+  let totalPages = 1;
+
+  do {
+    const response = await apiClient.getAttendanceReport({
+      from: filters.from,
+      to: filters.to,
+      branchId: filters.branchId,
+      needsReview: true,
+      page,
+      pageSize: REVIEW_PAGE_SIZE,
+    });
+
+    items.push(...response.items);
+    totalPages = response.totalPages;
+    page += 1;
+  } while (page <= totalPages);
+
+  return items;
 }
 
 function formatDate(date: string) {
@@ -42,10 +94,10 @@ export default function DashboardReviewsPage() {
   const [branches, setBranches] = useState<BranchListItem[]>([]);
   const [recordingSessionId, setRecordingSessionId] = useState<string | null>(null);
   const [filters, setFilters] = useState(() => {
-    const to = todayIso();
+    const to = toLocalDateInputValue();
     const fromDate = new Date();
     fromDate.setDate(fromDate.getDate() - 14);
-    const from = fromDate.toISOString().split('T')[0] ?? '';
+    const from = toLocalDateInputValue(fromDate);
 
     return {
       from,
@@ -67,26 +119,19 @@ export default function DashboardReviewsPage() {
     setError(null);
 
     try {
-      const [reviewResponse, approvalsResponse, branchResponse] = await Promise.all([
-        apiClient.getAttendanceReport({
+      const [reviewItemsResponse, approvalItemsResponse, branchItemsResponse] = await Promise.all([
+        fetchAllReviewItems({
           from: filters.from,
           to: filters.to,
           branchId: activeBranchId || undefined,
-          needsReview: true,
-          page: 1,
-          pageSize: 25,
         }),
-        apiClient.getApprovals({
-          status: 'PENDING',
-          branchId: activeBranchId || undefined,
-          limit: 10,
-        }),
-        isAdmin ? apiClient.getBranches({ limit: 50 }) : Promise.resolve({ items: [] }),
+        fetchAllApprovalRequests(activeBranchId || undefined),
+        isAdmin ? fetchAllBranches() : Promise.resolve([]),
       ]);
 
-      setReviewItems(reviewResponse.items);
-      setApprovalItems(approvalsResponse.items);
-      setBranches(branchResponse.items);
+      setReviewItems(reviewItemsResponse);
+      setApprovalItems(approvalItemsResponse);
+      setBranches(branchItemsResponse);
     } catch (loadError) {
       setError(
         loadError instanceof Error && loadError.message === 'NETWORK_OFFLINE'
@@ -101,7 +146,7 @@ export default function DashboardReviewsPage() {
   useEffect(() => {
     void loadData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, filters.from, filters.to, activeBranchId]);
+  }, [user, filters.from, filters.to, activeBranchId, isAdmin]);
 
   const stats = useMemo(() => {
     const unrecorded = reviewItems.filter((item) => !item.recorded).length;

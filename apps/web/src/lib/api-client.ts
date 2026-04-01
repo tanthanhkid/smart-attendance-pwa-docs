@@ -831,6 +831,10 @@ class ApiClient {
     to: string;
     branchId?: string;
     departmentId?: string;
+    status?: string;
+    needsReview?: boolean;
+    recorded?: boolean;
+    flagged?: boolean;
   }) {
     const query = new URLSearchParams({
       from: params.from,
@@ -838,6 +842,10 @@ class ApiClient {
     });
     if (params.branchId) query.set('branchId', params.branchId);
     if (params.departmentId) query.set('departmentId', params.departmentId);
+    if (params.status) query.set('status', params.status);
+    if (params.needsReview !== undefined) query.set('needsReview', String(params.needsReview));
+    if (params.recorded !== undefined) query.set('recorded', String(params.recorded));
+    if (params.flagged !== undefined) query.set('flagged', String(params.flagged));
     return this.request<AttendanceReportExportMetadata>(`/reports/export?${query}`);
   }
 
@@ -846,6 +854,10 @@ class ApiClient {
     to: string;
     branchId?: string;
     departmentId?: string;
+    status?: string;
+    needsReview?: boolean;
+    recorded?: boolean;
+    flagged?: boolean;
   }): Promise<Blob> {
     const query = new URLSearchParams({
       from: params.from,
@@ -853,6 +865,10 @@ class ApiClient {
     });
     if (params.branchId) query.set('branchId', params.branchId);
     if (params.departmentId) query.set('departmentId', params.departmentId);
+    if (params.status) query.set('status', params.status);
+    if (params.needsReview !== undefined) query.set('needsReview', String(params.needsReview));
+    if (params.recorded !== undefined) query.set('recorded', String(params.recorded));
+    if (params.flagged !== undefined) query.set('flagged', String(params.flagged));
 
     const url = `${this.baseUrl}/reports/download?${query}`;
     const headers = this.getHeaders({});

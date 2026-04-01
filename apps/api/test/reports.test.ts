@@ -305,11 +305,11 @@ async function main() {
 
   assert.equal(exportResult.contentType, 'text/csv');
   assert.equal(exportResult.total, sessions.length);
-  assert.equal(exportResult.returned, MAX_REPORT_PAGE_SIZE);
-  assert.equal(exportResult.truncated, true);
-  assert.equal(exportResult.limit, MAX_REPORT_PAGE_SIZE);
+  assert.equal(exportResult.returned, sessions.length);
+  assert.equal(exportResult.truncated, false);
+  assert.equal(exportResult.limit, sessions.length);
   assert.match(exportResult.filename, /^attendance_report_2026-04-01_2026-04-30\.csv$/);
-  assert.equal(exportResult.csv.split('\n').length, MAX_REPORT_PAGE_SIZE + 1);
+  assert.equal(exportResult.csv.split('\n').length, sessions.length + 1);
 
   console.log('reports.test.ts passed');
 }
