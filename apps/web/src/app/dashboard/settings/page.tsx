@@ -130,7 +130,7 @@ export default function DashboardSettingsPage() {
     setBranchDrafts((current) => ({
       ...current,
       [branchId]: {
-        ...current[branchId],
+        ...(current[branchId] ?? { centerLat: '', centerLng: '', radiusMeters: '' }),
         [field]: value,
       },
     }));
@@ -140,7 +140,7 @@ export default function DashboardSettingsPage() {
     setEmployeeDrafts((current) => ({
       ...current,
       [employeeId]: {
-        ...current[employeeId],
+        ...(current[employeeId] ?? { branchId: '', managerUserId: '' }),
         [field]: value,
       },
     }));
