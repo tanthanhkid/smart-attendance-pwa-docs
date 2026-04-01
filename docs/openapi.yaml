@@ -1,0 +1,22 @@
+openapi: 3.0.3
+info:
+  title: Smart Attendance API
+  version: 0.1.0
+paths:
+  /api/auth/login:
+    post:
+      summary: Login
+  /api/attendance/check-in:
+    post:
+      summary: Check in
+  /api/attendance/check-out:
+    post:
+      summary: Check out
+  /api/branches:
+    get:
+      summary: List branches
+    post:
+      summary: Create branch
+  /api/dashboard/system-summary:
+    get:
+      summary: System dashboard summary

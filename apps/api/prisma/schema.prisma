@@ -1,0 +1,247 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum AttendanceEventType {
+  CHECK_IN
+  CHECK_OUT
+  REJECTED
+  MANUAL_ADJUSTMENT
+}
+
+enum AttendanceStatus {
+  ON_TIME
+  LATE
+  ABSENT
+  EARLY_CHECKOUT
+  OVERTIME
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id              String      @id @default(uuid())
+  email           String      @unique
+  passwordHash    String
+  role            UserRole
+  employeeId      String?     @unique
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  employee        Employee?   @relation(fields: [employeeId], references: [id])
+  auditLogs       AuditLog[]
+}
+
+model Employee {
+  id                  String               @id @default(uuid())
+  employeeCode        String
+  fullName            String
+  phone               String?
+  branchId            String
+  departmentId        String?
+  managerUserId       String?
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  branch              Branch               @relation(fields: [branchId], references: [id])
+  department          Department?          @relation(fields: [departmentId], references: [id])
+  user                User?
+  sessions            AttendanceSession[]
+  deviceRegistrations DeviceRegistration[]
+  approvalRequests    ApprovalRequest[]
+
+  @@index([branchId])
+  @@index([departmentId])
+  @@index([branchId, departmentId])
+  @@unique([branchId, employeeCode])
+}
+
+model Branch {
+  id              String              @id @default(uuid())
+  code            String              @unique
+  name            String
+  address         String?
+  latitude        Decimal?            @db.Decimal(10, 7)
+  longitude       Decimal?            @db.Decimal(10, 7)
+  isActive        Boolean             @default(true)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  geofence        BranchGeofence?
+  wifiConfigs     BranchWifiConfig[]
+  departments     Department[]
+  employees       Employee[]
+  sessions        AttendanceSession[]
+  approvalRequests ApprovalRequest[]
+}
+
+model BranchGeofence {
+  id            String   @id @default(uuid())
+  branchId      String   @unique
+  centerLat     Decimal  @db.Decimal(10, 7)
+  centerLng     Decimal  @db.Decimal(10, 7)
+  radiusMeters  Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  branch        Branch   @relation(fields: [branchId], references: [id])
+}
+
+model BranchWifiConfig {
+  id          String   @id @default(uuid())
+  branchId    String
+  ssid        String?
+  bssid       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  branch      Branch   @relation(fields: [branchId], references: [id])
+
+  @@index([branchId, isActive])
+}
+
+model Department {
+  id          String     @id @default(uuid())
+  branchId    String
+  name        String
+  code        String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  branch      Branch     @relation(fields: [branchId], references: [id])
+  employees   Employee[]
+
+  @@index([branchId, name])
+}
+
+model ShiftTemplate {
+  id               String   @id @default(uuid())
+  name             String
+  startMinuteOfDay Int
+  endMinuteOfDay   Int
+  lateGraceMinutes Int      @default(10)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model AttendanceSession {
+  id                String            @id @default(uuid())
+  employeeId        String
+  branchId          String
+  workDate          DateTime
+  status            AttendanceStatus?
+  checkInAt         DateTime?
+  checkOutAt        DateTime?
+  totalMinutes      Int?
+  overtimeMinutes   Int?              @default(0)
+  riskScore         Int               @default(0)
+  isFlagged         Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  employee          Employee          @relation(fields: [employeeId], references: [id])
+  branch            Branch            @relation(fields: [branchId], references: [id])
+  events            AttendanceEvent[]
+  flags             AttendanceFlag[]
+  approvalRequests  ApprovalRequest[]
+
+  @@index([branchId, workDate])
+  @@index([employeeId, workDate(sort: Desc)])
+  @@index([status])
+  @@unique([employeeId, workDate])
+}
+
+model AttendanceEvent {
+  id                String              @id @default(uuid())
+  attendanceSessionId String?
+  employeeId        String
+  branchId          String
+  type              AttendanceEventType
+  occurredAt        DateTime
+  latitude          Decimal?            @db.Decimal(10, 7)
+  longitude         Decimal?            @db.Decimal(10, 7)
+  accuracyMeters    Float?
+  speedMps          Float?
+  distanceMeters    Float?
+  nonce             String?
+  decision          String?
+  createdAt         DateTime            @default(now())
+  session           AttendanceSession?  @relation(fields: [attendanceSessionId], references: [id])
+
+  @@index([employeeId, occurredAt(sort: Desc)])
+  @@index([branchId, occurredAt(sort: Desc)])
+  @@unique([employeeId, nonce])
+}
+
+model AttendanceFlag {
+  id                  String            @id @default(uuid())
+  attendanceSessionId String
+  code                String
+  message             String
+  severity            String
+  createdAt           DateTime          @default(now())
+  session             AttendanceSession @relation(fields: [attendanceSessionId], references: [id])
+
+  @@index([attendanceSessionId, severity])
+}
+
+model ApprovalRequest {
+  id                  String            @id @default(uuid())
+  employeeId          String
+  branchId            String
+  attendanceSessionId String?
+  status              ApprovalStatus    @default(PENDING)
+  reason              String
+  requestedCheckInAt  DateTime?
+  requestedCheckOutAt DateTime?
+  reviewedByUserId    String?
+  reviewedAt          DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  employee            Employee          @relation(fields: [employeeId], references: [id])
+  branch              Branch            @relation(fields: [branchId], references: [id])
+  session             AttendanceSession? @relation(fields: [attendanceSessionId], references: [id])
+
+  @@index([branchId, status, createdAt(sort: Desc)])
+  @@index([employeeId, status])
+  @@index([status])
+}
+
+model DeviceRegistration {
+  id            String    @id @default(uuid())
+  employeeId    String
+  deviceId      String
+  platform      String?
+  trusted       Boolean   @default(false)
+  lastSeenAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  employee      Employee  @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, deviceId])
+}
+
+model AuditLog {
+  id            String    @id @default(uuid())
+  actorUserId    String
+  action        String
+  entityType    String
+  entityId      String
+  metadataJson  Json?
+  createdAt     DateTime  @default(now())
+  actor         User      @relation(fields: [actorUserId], references: [id])
+
+  @@index([actorUserId, createdAt(sort: Desc)])
+  @@index([entityType, entityId])
+}

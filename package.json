@@ -1,0 +1,33 @@
+{
+  "name": "smart-attendance-pwa",
+  "private": true,
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "dev:web": "pnpm --filter @smart-attendance/web dev",
+    "dev:api": "pnpm --filter @smart-attendance/api dev",
+    "dev": "pnpm -r --parallel dev",
+    "check:db": "node scripts/check-local-db.mjs",
+    "build": "pnpm --filter @smart-attendance/api build && pnpm --filter @smart-attendance/web build",
+    "lint": "pnpm --filter @smart-attendance/api lint && pnpm --filter @smart-attendance/web lint",
+    "typecheck": "pnpm --filter @smart-attendance/api typecheck && pnpm --filter @smart-attendance/web typecheck",
+    "test": "pnpm --filter @smart-attendance/api test && pnpm --filter @smart-attendance/web test",
+    "format": "pnpm --filter @smart-attendance/api format && pnpm --filter @smart-attendance/web format",
+    "db:generate": "pnpm --filter @smart-attendance/api db:generate",
+    "db:push": "pnpm --filter @smart-attendance/api db:push",
+    "db:seed": "pnpm --filter @smart-attendance/api db:seed",
+    "db:studio": "pnpm --filter @smart-attendance/api db:studio",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": ["eslint --fix", "prettier --write"],
+    "*.{json,md}": ["prettier --write"]
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "name": "Smart Attendance",
+  "short_name": "Attendance",
+  "description": "PWA Chấm công thông minh - Check-in/out với GPS Geofencing",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#111827",
+  "orientation": "portrait-primary",
+  "categories": ["business", "productivity"],
+  "lang": "vi",
+  "dir": "ltr",
+  "id": "smart-attendance-pwa",
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "handle_links": "preferred",
+  "link_relation": "manifest",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/apple-touch-icon.svg",
+      "sizes": "180x180",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Chấm công",
+      "short_name": "Check-in",
+      "description": "Mở trang chấm công",
+      "url": "/attendance",
+      "icons": [
+        {
+          "src": "/icons/icon.svg",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Lịch sử",
+      "short_name": "History",
+      "description": "Xem lịch sử chấm công",
+      "url": "/history",
+      "icons": [
+        {
+          "src": "/icons/icon.svg",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "1280x720",
+      "type": "image/svg+xml",
+      "label": "Màn hình chấm công"
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

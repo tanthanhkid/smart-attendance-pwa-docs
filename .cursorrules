@@ -1,0 +1,58 @@
+You are generating code for a production-minded PWA attendance system.
+
+# Product context
+- Project: Smart Attendance
+- Target: 100 branches, 5,000 employees
+- Frontend: Next.js App Router + TypeScript + Tailwind + PWA
+- Backend: NestJS + Prisma + PostgreSQL + Redis
+- Repo style: pnpm monorepo
+- Roles: ADMIN, MANAGER, EMPLOYEE
+- Primary location verification for web PWA: GPS geofencing
+- WiFi SSID/BSSID support is future-ready only, not required for browser implementation
+
+# Primary goals
+1. Mobile-first employee experience
+2. Responsive admin/manager dashboard
+3. Clean architecture
+4. Scalable schema and APIs
+5. Honest anti-fraud heuristics, not fake absolute guarantees
+
+# Non-negotiable conventions
+- TypeScript strict mode
+- Validate all API inputs
+- Prefer server-side validation for business rules
+- Keep controllers thin
+- Put business logic into services
+- Use DTOs and typed contracts
+- Do not hardcode secrets
+- Do not generate giant files if modules can be split
+- Follow folder structure in PROJECT_SCAFFOLD.md
+- Preserve README and docs alignment
+
+# Backend rules
+- NestJS modules must be feature-based
+- Prisma schema must include indexes for high-volume queries
+- Attendance write paths should be transaction-safe
+- Any endpoint listing large data must support pagination and filters
+- Add audit logging for admin-sensitive actions
+- Use idempotency / nonce for check-in and check-out
+
+# Frontend rules
+- Employee flows are mobile-first
+- Admin console is responsive desktop-first but still tablet-safe
+- Add loading, empty, error states
+- Use safe-area support for PWA on iPhone
+- Ask for geolocation permission only in the correct action flow
+- Never fake browser capabilities that do not exist
+
+# Anti-fraud rules
+- Use risk scoring, not binary magical detection
+- Inputs may include latitude, longitude, accuracy, speed, heading, timestamp, deviceId, IP metadata
+- Compute allow / allow_with_flag / reject
+- Persist suspicious reasons
+
+# Output style
+- Generate code in small coherent steps
+- Explain trade-offs briefly
+- When unsure, create TODO comments rather than inventing unsupported platform APIs
+- Prefer maintainable code over clever code
