@@ -176,8 +176,9 @@ async function main() {
   console.log('✅ Created shift templates');
 
   const managerPasswordHash = await hash('manager123', 10);
+  const branchManagerByBranchId = new Map<string, string>();
   for (let i = 0; i < branches.length; i++) {
-    await prisma.user.create({
+    const manager = await prisma.user.create({
       data: {
         email: `manager${i + 1}@smart-attendance.com`,
         passwordHash: managerPasswordHash,
@@ -191,6 +192,7 @@ async function main() {
         },
       },
     });
+    branchManagerByBranchId.set(branches[i].id, manager.id);
   }
   console.log(`✅ Created ${branches.length} manager users`);
 
@@ -215,6 +217,7 @@ async function main() {
             phone: `090${String(Math.floor(Math.random() * 9000000 + 1000000))}`,
             branchId: branch.id,
             departmentId: dept.id,
+            managerUserId: branchManagerByBranchId.get(branch.id) ?? null,
           },
         },
       },
