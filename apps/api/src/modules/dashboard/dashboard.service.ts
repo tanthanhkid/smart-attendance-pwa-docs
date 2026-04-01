@@ -89,7 +89,7 @@ export class DashboardService {
     };
   }
 
-  async getBranchSummary(branchId: string, date?: Date) {
+  async getBranchSummary(branchId: string, date?: Date, managerUserId?: string) {
     const targetDate = date || new Date();
     targetDate.setHours(0, 0, 0, 0);
     const nextDay = new Date(targetDate);
@@ -101,18 +101,29 @@ export class DashboardService {
       OR: [{ status: null }, { isFlagged: true }],
     };
 
+    if (managerUserId) {
+      reviewRequiredWhereClause.employee = { managerUserId };
+    }
+
     const [branch, totalEmployees, checkedIn, unrecordedCount, lateCount, flaggedCount, reviewRequiredCount] = await Promise.all([
       this.prisma.branch.findUnique({
         where: { id: branchId },
         include: { geofence: true },
       }),
-      this.prisma.employee.count({ where: { branchId, isActive: true } }),
+      this.prisma.employee.count({
+        where: {
+          branchId,
+          isActive: true,
+          ...(managerUserId ? { managerUserId } : {}),
+        },
+      }),
       this.prisma.attendanceSession.count({
         where: {
           branchId,
           workDate: { gte: targetDate, lt: nextDay },
           checkInAt: { not: null },
           status: { not: null },
+          ...(managerUserId ? { employee: { managerUserId } } : {}),
         },
       }),
       this.prisma.attendanceSession.count({
@@ -121,6 +132,7 @@ export class DashboardService {
           workDate: { gte: targetDate, lt: nextDay },
           checkInAt: { not: null },
           status: null,
+          ...(managerUserId ? { employee: { managerUserId } } : {}),
         },
       }),
       this.prisma.attendanceSession.count({
@@ -128,6 +140,7 @@ export class DashboardService {
           branchId,
           workDate: { gte: targetDate, lt: nextDay },
           status: AttendanceStatus.LATE,
+          ...(managerUserId ? { employee: { managerUserId } } : {}),
         },
       }),
       this.prisma.attendanceSession.count({
@@ -135,6 +148,7 @@ export class DashboardService {
           branchId,
           workDate: { gte: targetDate, lt: nextDay },
           isFlagged: true,
+          ...(managerUserId ? { employee: { managerUserId } } : {}),
         },
       }),
       this.prisma.attendanceSession.count({ where: reviewRequiredWhereClause }),
@@ -156,9 +170,10 @@ export class DashboardService {
   async getTrends(params: {
     branchId?: string;
     departmentId?: string;
+    managerUserId?: string;
     days?: number;
   }) {
-    const { branchId, departmentId, days = 7 } = params;
+    const { branchId, departmentId, managerUserId, days = 7 } = params;
 
     const from = new Date();
     from.setDate(from.getDate() - days);
@@ -169,7 +184,13 @@ export class DashboardService {
     };
 
     if (branchId) whereClause.branchId = branchId;
-    if (departmentId) whereClause.employee = { departmentId };
+
+    const employeeWhere: Prisma.EmployeeWhereInput = {};
+    if (departmentId) employeeWhere.departmentId = departmentId;
+    if (managerUserId) employeeWhere.managerUserId = managerUserId;
+    if (Object.keys(employeeWhere).length > 0) {
+      whereClause.employee = employeeWhere;
+    }
 
     const sessions = await this.prisma.attendanceSession.groupBy({
       by: ['workDate', 'status'],
@@ -195,7 +216,7 @@ export class DashboardService {
   async getHeatmap(branchId?: string, params?: {
     page?: number;
     pageSize?: number;
-  }) {
+  }, managerUserId?: string) {
     const { page = 1, pageSize = 30 } = params || {};
     const from = new Date();
     from.setDate(from.getDate() - 30);
@@ -206,6 +227,7 @@ export class DashboardService {
     };
 
     if (branchId) whereClause.branchId = branchId;
+    if (managerUserId) whereClause.employee = { managerUserId };
 
     const [heatmap, branches] = await Promise.all([
       this.prisma.attendanceSession.groupBy({
@@ -249,6 +271,7 @@ export class DashboardService {
   async getReviewQueue(params: {
     branchId?: string;
     departmentId?: string;
+    scopeManagerUserId?: string;
     from?: Date;
     to?: Date;
     page?: number;
@@ -272,6 +295,7 @@ export class DashboardService {
       to,
       branchId: params.branchId,
       departmentId: params.departmentId,
+      scopeManagerUserId: params.scopeManagerUserId,
       needsReview: true,
       page: params.page,
       pageSize: params.pageSize,

@@ -111,11 +111,53 @@ export interface BranchListItem {
   id: string;
   code: string;
   name: string;
+  address?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
   isActive?: boolean;
+  geofence?: {
+    centerLat: number | string;
+    centerLng: number | string;
+    radiusMeters: number;
+  } | null;
+  _count?: {
+    employees: number;
+  };
 }
 
 export interface BranchListResponse {
   items: BranchListItem[];
+  hasMore: boolean;
+  nextCursor?: string;
+}
+
+export interface EmployeeListItem {
+  id: string;
+  employeeCode: string;
+  fullName: string;
+  phone?: string | null;
+  branchId: string;
+  departmentId?: string | null;
+  managerUserId?: string | null;
+  isActive: boolean;
+  branch?: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  department?: {
+    id: string;
+    name: string;
+  } | null;
+  user?: {
+    id: string;
+    email: string;
+    role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
+  } | null;
+}
+
+export interface EmployeeListResponse {
+  items: EmployeeListItem[];
   hasMore: boolean;
   nextCursor?: string;
 }
@@ -693,11 +735,25 @@ class ApiClient {
     if (params?.limit) query.set('limit', String(params.limit));
     if (params?.branchId) query.set('branchId', params.branchId);
     if (params?.search) query.set('search', params.search);
-    return this.request(`/employees?${query}`);
+    return this.request<EmployeeListResponse>(`/employees?${query}`);
   }
 
   async getMe() {
     return this.request('/employees/me');
+  }
+
+  async updateEmployee(
+    id: string,
+    data: Partial<{
+      fullName: string;
+      phone: string;
+      branchId: string;
+      departmentId: string | null;
+      managerUserId: string | null;
+      isActive: boolean;
+    }>,
+  ) {
+    return this.request(`/employees/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
   }
 
   // Dashboard

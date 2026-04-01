@@ -6,9 +6,9 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/lib';
-import { Building2, FileText, LayoutDashboard, ListChecks, LogOut, TimerReset } from 'lucide-react';
+import { Building2, FileText, LayoutDashboard, ListChecks, LogOut, Settings2, TimerReset } from 'lucide-react';
 
-const navItems = [
+const baseNavItems = [
   { href: '/dashboard', label: 'Tổng quan', icon: LayoutDashboard },
   { href: '/dashboard/reviews', label: 'Review queue', icon: ListChecks },
   { href: '/dashboard/reports', label: 'Báo cáo', icon: FileText },
@@ -48,6 +48,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const branchLabel = user.role === 'MANAGER'
     ? user.employee?.branchName || 'Branch scope'
     : 'Toàn hệ thống';
+  const navItems = user.role === 'ADMIN'
+    ? [...baseNavItems, { href: '/dashboard/settings', label: 'Thiết lập', icon: Settings2 }] as const
+    : baseNavItems;
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.14),_transparent_28%),linear-gradient(180deg,_#f8fafc_0%,_#ffffff_40%,_#f8fafc_100%)]">

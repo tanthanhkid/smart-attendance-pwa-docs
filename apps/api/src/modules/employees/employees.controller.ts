@@ -50,6 +50,7 @@ export class EmployeesController {
   @ApiOperation({ summary: 'List all employees' })
   @ApiResponse({ status: 200, description: 'Employees retrieved' })
   findAll(
+    @CurrentUser('id') userId: string,
     @CurrentUser('role') role: UserRole,
     @CurrentUser('employee') employee: { branchId?: string | null } | null,
     @Query() query: EmployeeQueryDto,
@@ -58,6 +59,7 @@ export class EmployeesController {
       ...query,
       branchId: query.branchId,
       scopeBranchId: this.resolveManagerBranchId(role, employee),
+      scopeManagerUserId: role === UserRole.MANAGER ? userId : undefined,
     });
   }
 
@@ -84,12 +86,14 @@ export class EmployeesController {
   @ApiResponse({ status: 404, description: 'Employee not found' })
   findOne(
     @Param('id') id: string,
+    @CurrentUser('id') userId: string,
     @CurrentUser('role') role: UserRole,
     @CurrentUser('employee') employee: { branchId?: string | null } | null,
   ) {
     return this.employeesService.findOne(
       id,
       this.resolveManagerBranchId(role, employee),
+      role === UserRole.MANAGER ? userId : undefined,
     );
   }
 

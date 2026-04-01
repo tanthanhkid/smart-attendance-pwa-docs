@@ -108,6 +108,12 @@ export class AttendanceController {
       throw new ForbiddenException('Manager branch context is required');
     }
 
-    return this.attendanceService.recordAttendanceReview(id, reviewerId, dto.note, scopeBranchId);
+    return this.attendanceService.recordAttendanceReview(
+      id,
+      reviewerId,
+      dto.note,
+      scopeBranchId,
+      role === UserRole.MANAGER ? reviewerId : undefined,
+    );
   }
 }

@@ -32,6 +32,7 @@ export class ApprovalsController {
   @ApiOperation({ summary: 'List all approval requests' })
   @ApiResponse({ status: 200, description: 'Approvals retrieved' })
   findAll(
+    @CurrentUser('id') userId: string,
     @CurrentUser('role') role: UserRole,
     @CurrentUser('employee') employee: { branchId?: string | null } | null,
     @Query() query: ApprovalsQueryDto,
@@ -40,6 +41,7 @@ export class ApprovalsController {
       ...query,
       branchId: query.branchId,
       scopeBranchId: this.resolveManagerBranchId(role, employee),
+      scopeManagerUserId: role === UserRole.MANAGER ? userId : undefined,
     });
   }
 
@@ -50,12 +52,14 @@ export class ApprovalsController {
   @ApiResponse({ status: 404, description: 'Not found' })
   findOne(
     @Param('id') id: string,
+    @CurrentUser('id') userId: string,
     @CurrentUser('role') role: UserRole,
     @CurrentUser('employee') employee: { branchId?: string | null } | null,
   ) {
     return this.approvalsService.findOne(
       id,
       this.resolveManagerBranchId(role, employee),
+      role === UserRole.MANAGER ? userId : undefined,
     );
   }
 
@@ -74,6 +78,7 @@ export class ApprovalsController {
       id,
       userId,
       this.resolveManagerBranchId(role, employee),
+      role === UserRole.MANAGER ? userId : undefined,
     );
   }
 
@@ -94,6 +99,7 @@ export class ApprovalsController {
       userId,
       dto.reason,
       this.resolveManagerBranchId(role, employee),
+      role === UserRole.MANAGER ? userId : undefined,
     );
   }
 }

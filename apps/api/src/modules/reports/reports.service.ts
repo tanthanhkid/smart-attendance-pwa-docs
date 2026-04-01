@@ -187,6 +187,7 @@ export class ReportsService {
     branchId?: string;
     departmentId?: string;
     employeeId?: string;
+    scopeManagerUserId?: string;
     status?: PrismaAttendanceStatus;
     needsReview?: boolean;
     recorded?: boolean;
@@ -200,6 +201,7 @@ export class ReportsService {
       branchId,
       departmentId,
       employeeId,
+      scopeManagerUserId,
       status,
       needsReview,
       recorded,
@@ -226,8 +228,16 @@ export class ReportsService {
     if (branchId) where.branchId = branchId;
     if (employeeId) where.employeeId = employeeId;
     if (status) where.status = status;
+
+    const employeeWhere: Prisma.EmployeeWhereInput = {};
     if (departmentId) {
-      where.employee = { departmentId };
+      employeeWhere.departmentId = departmentId;
+    }
+    if (scopeManagerUserId) {
+      employeeWhere.managerUserId = scopeManagerUserId;
+    }
+    if (Object.keys(employeeWhere).length > 0) {
+      where.employee = employeeWhere;
     }
 
     const reviewConditions: Prisma.AttendanceSessionWhereInput[] = [];
@@ -315,6 +325,7 @@ export class ReportsService {
     to: Date;
     branchId?: string;
     departmentId?: string;
+    scopeManagerUserId?: string;
   }): Promise<AttendanceExportResponse> {
     const sessions = await this.getAttendanceReport({
       ...params,

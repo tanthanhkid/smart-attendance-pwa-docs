@@ -26,6 +26,7 @@ type AttendanceSessionRecord = {
     employeeCode: string;
     fullName: string;
     branchId: string;
+    managerUserId: string | null;
     departmentId: string | null;
     department: { id: string; name: string } | null;
   };
@@ -98,8 +99,11 @@ function createServiceFixture(options: {
     }
 
     if (where.employee && typeof where.employee === 'object') {
-      const employeeFilter = where.employee as { departmentId?: string | null };
+      const employeeFilter = where.employee as { departmentId?: string | null; managerUserId?: string | null };
       if (employeeFilter.departmentId !== undefined && session.employee.departmentId !== employeeFilter.departmentId) {
+        return false;
+      }
+      if (employeeFilter.managerUserId !== undefined && session.employee.managerUserId !== employeeFilter.managerUserId) {
         return false;
       }
     }
@@ -155,6 +159,7 @@ function createSession(index: number): AttendanceSessionRecord {
       employeeCode: `EMP${String(index + 1).padStart(5, '0')}`,
       fullName: `Employee ${index + 1}`,
       branchId: `branch-${(index % 3) + 1}`,
+      managerUserId: index % 2 === 0 ? 'manager-1' : 'manager-2',
       departmentId: index % 2 === 0 ? 'dept-1' : null,
       department: index % 2 === 0 ? { id: 'dept-1', name: 'Operations' } : null,
     },
@@ -274,6 +279,24 @@ async function main() {
   assert.equal(fixture.getLastFindManyArgs()?.take, MAX_REPORT_PAGE_SIZE);
   assert.equal(fixture.getLastFindManyArgs()?.skip, MAX_REPORT_PAGE_SIZE);
   assert.equal(fixture.getLastCountArgs() != null, true);
+
+  const managerScopedReport = await fixture.service.getAttendanceReport({
+    from: new Date('2026-04-01T00:00:00.000Z'),
+    to: new Date('2026-04-30T23:59:59.999Z'),
+    scopeManagerUserId: 'manager-1',
+    page: 1,
+    pageSize: 20,
+  });
+
+  assert.equal(managerScopedReport.items.length, 20);
+  assert.equal(
+    managerScopedReport.items.every((item) => Number(item.employee.employeeCode.slice(3)) % 2 === 1),
+    true,
+  );
+  assert.equal(
+    ((fixture.getLastFindManyArgs()?.where as { employee?: { managerUserId?: string } } | undefined)?.employee?.managerUserId),
+    'manager-1',
+  );
 
   const exportResult = await fixture.service.exportAttendance({
     from: new Date('2026-04-01T00:00:00.000Z'),

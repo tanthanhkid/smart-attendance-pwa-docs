@@ -7,11 +7,38 @@ import { hash } from 'bcryptjs';
 export class EmployeesService {
   constructor(private prisma: PrismaService) {}
 
+  private async validateManagerUser(branchId: string, managerUserId?: string | null) {
+    if (!managerUserId) {
+      return;
+    }
+
+    const manager = await this.prisma.user.findUnique({
+      where: { id: managerUserId },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            branchId: true,
+          },
+        },
+      },
+    });
+
+    if (!manager || manager.role !== 'MANAGER' || !manager.employee) {
+      throw new BadRequestException('Assigned manager must be an active manager account');
+    }
+
+    if (manager.employee.branchId !== branchId) {
+      throw new BadRequestException('Assigned manager must belong to the same branch');
+    }
+  }
+
   async findAll(params: {
     cursor?: string;
     limit?: number;
     branchId?: string;
     scopeBranchId?: string;
+    scopeManagerUserId?: string;
     departmentId?: string;
     search?: string;
     status?: 'active' | 'inactive' | 'all';
@@ -21,6 +48,7 @@ export class EmployeesService {
       limit = BUSINESS_RULES.PAGINATION.DEFAULT_LIMIT,
       branchId,
       scopeBranchId,
+      scopeManagerUserId,
       departmentId,
       search,
       status = 'active',
@@ -37,6 +65,10 @@ export class EmployeesService {
     const effectiveBranchId = scopeBranchId ?? branchId;
     if (effectiveBranchId) {
       where.branchId = effectiveBranchId;
+    }
+
+    if (scopeManagerUserId) {
+      where.managerUserId = scopeManagerUserId;
     }
 
     if (departmentId) {
@@ -65,7 +97,7 @@ export class EmployeesService {
     return applyPagination(employees, limit);
   }
 
-  async findOne(id: string, scopeBranchId?: string) {
+  async findOne(id: string, scopeBranchId?: string, scopeManagerUserId?: string) {
     const employee = await this.prisma.employee.findUnique({
       where: { id },
       include: {
@@ -84,6 +116,10 @@ export class EmployeesService {
     }
 
     if (scopeBranchId && employee.branchId !== scopeBranchId) {
+      throw new ForbiddenException('You do not have access to this employee');
+    }
+
+    if (scopeManagerUserId && employee.managerUserId !== scopeManagerUserId) {
       throw new ForbiddenException('You do not have access to this employee');
     }
 
@@ -109,6 +145,7 @@ export class EmployeesService {
     phone?: string;
     branchId: string;
     departmentId?: string;
+    managerUserId?: string | null;
     email: string;
     password: string;
     createdByUserId: string;
@@ -129,18 +166,21 @@ export class EmployeesService {
       throw new BadRequestException(ERROR_MESSAGES.EMPLOYEE.EMAIL_EXISTS);
     }
 
+    await this.validateManagerUser(data.branchId, data.managerUserId);
+
     const passwordHash = await hash(data.password, 10);
 
     return this.prisma.$transaction(async (tx) => {
       const employee = await tx.employee.create({
         data: {
           employeeCode: data.employeeCode,
-          fullName: data.fullName,
-          phone: data.phone,
-          branchId: data.branchId,
-          departmentId: data.departmentId,
-          user: {
-            create: {
+            fullName: data.fullName,
+            phone: data.phone,
+            branchId: data.branchId,
+            departmentId: data.departmentId,
+            managerUserId: data.managerUserId ?? null,
+            user: {
+              create: {
               email: data.email,
               passwordHash,
               role: 'EMPLOYEE',
@@ -160,13 +200,14 @@ export class EmployeesService {
           action: 'CREATE_EMPLOYEE',
           entityType: 'Employee',
           entityId: employee.id,
-          metadataJson: {
-            employeeCode: data.employeeCode,
-            fullName: data.fullName,
-            branchId: data.branchId,
+            metadataJson: {
+              employeeCode: data.employeeCode,
+              fullName: data.fullName,
+              branchId: data.branchId,
+              managerUserId: data.managerUserId ?? null,
+            },
           },
-        },
-      });
+        });
 
       return employee;
     });
@@ -176,7 +217,8 @@ export class EmployeesService {
     fullName?: string;
     phone?: string;
     branchId?: string;
-    departmentId?: string;
+    departmentId?: string | null;
+    managerUserId?: string | null;
     isActive?: boolean;
   }) {
     const employee = await this.prisma.employee.findUnique({ where: { id } });
@@ -184,13 +226,20 @@ export class EmployeesService {
       throw new NotFoundException(ERROR_MESSAGES.EMPLOYEE.NOT_FOUND);
     }
 
+    const nextBranchId = 'branchId' in data ? (data.branchId ?? employee.branchId) : employee.branchId;
+    const nextManagerUserId =
+      'managerUserId' in data ? (data.managerUserId ?? null) : employee.managerUserId;
+
+    await this.validateManagerUser(nextBranchId, nextManagerUserId);
+
     return this.prisma.employee.update({
       where: { id },
       data: {
         fullName: data.fullName ?? employee.fullName,
         phone: data.phone ?? employee.phone,
-        branchId: data.branchId ?? employee.branchId,
-        departmentId: data.departmentId ?? employee.departmentId,
+        branchId: nextBranchId,
+        departmentId: 'departmentId' in data ? (data.departmentId ?? null) : employee.departmentId,
+        managerUserId: nextManagerUserId,
         isActive: data.isActive ?? employee.isActive,
       },
       include: {

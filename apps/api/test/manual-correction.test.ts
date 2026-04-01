@@ -99,6 +99,9 @@ test('approval approval applies requested correction timestamps to the session',
       checkOutAt: null,
       workDate: new Date('2026-04-01T00:00:00.000Z'),
     },
+    employee: {
+      managerUserId: 'manager-user-1',
+    },
   };
 
   const service = new ApprovalsService({

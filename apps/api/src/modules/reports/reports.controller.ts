@@ -70,6 +70,7 @@ export class ReportsController {
   @ApiOperation({ summary: 'Get attendance report with filters' })
   @ApiResponse({ status: 200, description: 'Attendance report' })
   getAttendanceReport(
+    @CurrentUser('id') userId: string,
     @CurrentUser('role') role: UserRole,
     @CurrentUser('employee') employee: { branchId?: string | null } | null,
     @Query('from') from: string,
@@ -91,6 +92,7 @@ export class ReportsController {
       branchId: effectiveBranchId,
       departmentId,
       employeeId,
+      scopeManagerUserId: role === UserRole.MANAGER ? userId : undefined,
       status: isEnumValue(AttendanceStatus, status) ? status : undefined,
       needsReview: this.parseBooleanQuery(needsReview),
       recorded: this.parseBooleanQuery(recorded),
@@ -105,6 +107,7 @@ export class ReportsController {
   @ApiOperation({ summary: 'Export attendance data as CSV' })
   @ApiResponse({ status: 200, description: 'CSV export metadata' })
   async exportAttendance(
+    @CurrentUser('id') userId: string,
     @CurrentUser('role') role: UserRole,
     @CurrentUser('employee') employee: { branchId?: string | null } | null,
     @Query('from') from: string,
@@ -118,6 +121,7 @@ export class ReportsController {
       to: new Date(to),
       branchId: effectiveBranchId,
       departmentId,
+      scopeManagerUserId: role === UserRole.MANAGER ? userId : undefined,
     });
 
     return {
@@ -141,6 +145,7 @@ export class ReportsController {
   @ApiOperation({ summary: 'Download attendance export as CSV' })
   @ApiResponse({ status: 200, description: 'CSV file download' })
   async downloadAttendance(
+    @CurrentUser('id') userId: string,
     @CurrentUser('role') role: UserRole,
     @CurrentUser('employee') employee: { branchId?: string | null } | null,
     @Query('from') from: string,
@@ -155,6 +160,7 @@ export class ReportsController {
       to: new Date(to),
       branchId: effectiveBranchId,
       departmentId,
+      scopeManagerUserId: role === UserRole.MANAGER ? userId : undefined,
     });
 
     response?.setHeader('Content-Type', `${result.contentType}; charset=utf-8`);

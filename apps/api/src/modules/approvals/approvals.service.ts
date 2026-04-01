@@ -26,6 +26,12 @@ export class ApprovalsService {
     }
   }
 
+  private assertManagerAccess(requestManagerUserId: string | null, scopeManagerUserId?: string) {
+    if (scopeManagerUserId && requestManagerUserId !== scopeManagerUserId) {
+      throw new ForbiddenException('You do not have access to this approval request');
+    }
+  }
+
   private assertPendingStatus(status: unknown) {
     if (status !== 'PENDING') {
       throw new BadRequestException('Approval request has already been processed');
@@ -101,6 +107,7 @@ export class ApprovalsService {
     limit?: number;
     branchId?: string;
     scopeBranchId?: string;
+    scopeManagerUserId?: string;
     status?: ApprovalStatus;
     reviewedBy?: string;
   }) {
@@ -109,6 +116,7 @@ export class ApprovalsService {
       limit = BUSINESS_RULES.PAGINATION.DEFAULT_LIMIT,
       branchId,
       scopeBranchId,
+      scopeManagerUserId,
       status,
       reviewedBy,
     } = params;
@@ -119,6 +127,9 @@ export class ApprovalsService {
       where.branchId = scopeBranchId;
     } else if (branchId) {
       where.branchId = branchId;
+    }
+    if (scopeManagerUserId) {
+      where.employee = { managerUserId: scopeManagerUserId };
     }
     if (status) where.status = status;
     if (reviewedBy) where.reviewedByUserId = reviewedBy;
@@ -137,11 +148,11 @@ export class ApprovalsService {
     return applyPagination(requests, limit);
   }
 
-  async findOne(id: string, scopeBranchId?: string) {
+  async findOne(id: string, scopeBranchId?: string, scopeManagerUserId?: string) {
     const request = await this.prisma.approvalRequest.findUnique({
       where: { id },
       include: {
-        employee: { select: { id: true, fullName: true, employeeCode: true } },
+        employee: { select: { id: true, fullName: true, employeeCode: true, managerUserId: true } },
         branch: { select: { id: true, name: true, code: true } },
         session: { 
           select: { 
@@ -161,14 +172,22 @@ export class ApprovalsService {
     }
 
     this.assertBranchAccess(request.branchId, scopeBranchId);
+    this.assertManagerAccess(request.employee.managerUserId, scopeManagerUserId);
 
     return request;
   }
 
-  async approve(id: string, reviewerId: string, scopeBranchId?: string) {
+  async approve(id: string, reviewerId: string, scopeBranchId?: string, scopeManagerUserId?: string) {
     const request = await this.prisma.approvalRequest.findUnique({
       where: { id },
-      include: { session: true },
+      include: {
+        session: true,
+        employee: {
+          select: {
+            managerUserId: true,
+          },
+        },
+      },
     });
 
     if (!request) {
@@ -176,6 +195,7 @@ export class ApprovalsService {
     }
 
     this.assertBranchAccess(request.branchId, scopeBranchId);
+    this.assertManagerAccess(request.employee.managerUserId, scopeManagerUserId);
 
     this.assertPendingStatus(request.status);
 
@@ -276,9 +296,16 @@ export class ApprovalsService {
     });
   }
 
-  async reject(id: string, reviewerId: string, reason?: string, scopeBranchId?: string) {
+  async reject(id: string, reviewerId: string, reason?: string, scopeBranchId?: string, scopeManagerUserId?: string) {
     const request = await this.prisma.approvalRequest.findUnique({
       where: { id },
+      include: {
+        employee: {
+          select: {
+            managerUserId: true,
+          },
+        },
+      },
     });
 
     if (!request) {
@@ -286,6 +313,7 @@ export class ApprovalsService {
     }
 
     this.assertBranchAccess(request.branchId, scopeBranchId);
+    this.assertManagerAccess(request.employee.managerUserId, scopeManagerUserId);
 
     this.assertPendingStatus(request.status);
 

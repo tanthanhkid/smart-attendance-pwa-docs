@@ -9,7 +9,7 @@ import { ApprovalsService } from '../src/modules/approvals/approvals.service';
 import { DashboardController } from '../src/modules/dashboard/dashboard.controller';
 import { DashboardService } from '../src/modules/dashboard/dashboard.service';
 
-test('manager employee listing is forced to the manager branch', async () => {
+test('manager employee listing is forced to the manager scope', async () => {
   const calls: Array<Record<string, unknown>> = [];
   const employeesService = {
     findAll: async (params: Record<string, unknown>) => {
@@ -21,6 +21,7 @@ test('manager employee listing is forced to the manager branch', async () => {
   const controller = new EmployeesController(employeesService);
 
   await controller.findAll(
+    'manager-user-1',
     UserRole.MANAGER,
     { branchId: 'branch-a' },
     { branchId: 'branch-b', search: 'Ana' } as never,
@@ -29,26 +30,27 @@ test('manager employee listing is forced to the manager branch', async () => {
   assert.equal(calls.length, 1);
   assert.equal(calls[0].branchId, 'branch-b');
   assert.equal(calls[0].scopeBranchId, 'branch-a');
+  assert.equal(calls[0].scopeManagerUserId, 'manager-user-1');
   assert.equal(calls[0].search, 'Ana');
 });
 
-test('manager approval actions are forced to the manager branch', async () => {
+test('manager approval actions are forced to the manager scope', async () => {
   const calls: Array<{ method: string; payload: Record<string, unknown> }> = [];
   const approvalsService = {
     findAll: async (params: Record<string, unknown>) => {
       calls.push({ method: 'findAll', payload: params });
       return { items: [], hasMore: false };
     },
-    findOne: async (id: string, scopeBranchId?: string) => {
-      calls.push({ method: 'findOne', payload: { id, scopeBranchId } });
+    findOne: async (id: string, scopeBranchId?: string, scopeManagerUserId?: string) => {
+      calls.push({ method: 'findOne', payload: { id, scopeBranchId, scopeManagerUserId } });
       return {};
     },
-    approve: async (id: string, reviewerId: string, scopeBranchId?: string) => {
-      calls.push({ method: 'approve', payload: { id, reviewerId, scopeBranchId } });
+    approve: async (id: string, reviewerId: string, scopeBranchId?: string, scopeManagerUserId?: string) => {
+      calls.push({ method: 'approve', payload: { id, reviewerId, scopeBranchId, scopeManagerUserId } });
       return {};
     },
-    reject: async (id: string, reviewerId: string, reason?: string, scopeBranchId?: string) => {
-      calls.push({ method: 'reject', payload: { id, reviewerId, reason, scopeBranchId } });
+    reject: async (id: string, reviewerId: string, reason?: string, scopeBranchId?: string, scopeManagerUserId?: string) => {
+      calls.push({ method: 'reject', payload: { id, reviewerId, reason, scopeBranchId, scopeManagerUserId } });
       return {};
     },
   } as unknown as ApprovalsService;
@@ -56,15 +58,16 @@ test('manager approval actions are forced to the manager branch', async () => {
   const controller = new ApprovalsController(approvalsService);
 
   await controller.findAll(
+    'manager-user-1',
     UserRole.MANAGER,
     { branchId: 'branch-a' },
     { branchId: 'branch-b', status: 'PENDING' } as never,
   );
-  await controller.findOne('approval-1', UserRole.MANAGER, { branchId: 'branch-a' });
-  await controller.approve('approval-1', 'user-1', UserRole.MANAGER, { branchId: 'branch-a' });
+  await controller.findOne('approval-1', 'manager-user-1', UserRole.MANAGER, { branchId: 'branch-a' });
+  await controller.approve('approval-1', 'manager-user-1', UserRole.MANAGER, { branchId: 'branch-a' });
   await controller.reject(
     'approval-2',
-    'user-1',
+    'manager-user-1',
     UserRole.MANAGER,
     { branchId: 'branch-a' },
     { reason: 'no' } as never,
@@ -73,12 +76,16 @@ test('manager approval actions are forced to the manager branch', async () => {
   assert.equal(calls[0].method, 'findAll');
   assert.equal(calls[0].payload.branchId, 'branch-b');
   assert.equal(calls[0].payload.scopeBranchId, 'branch-a');
+  assert.equal(calls[0].payload.scopeManagerUserId, 'manager-user-1');
   assert.equal(calls[1].payload.scopeBranchId, 'branch-a');
+  assert.equal(calls[1].payload.scopeManagerUserId, 'manager-user-1');
   assert.equal(calls[2].payload.scopeBranchId, 'branch-a');
+  assert.equal(calls[2].payload.scopeManagerUserId, 'manager-user-1');
   assert.equal(calls[3].payload.scopeBranchId, 'branch-a');
+  assert.equal(calls[3].payload.scopeManagerUserId, 'manager-user-1');
 });
 
-test('manager review queue is forced to the manager branch', async () => {
+test('manager review queue is forced to the manager scope', async () => {
   const calls: Array<Record<string, unknown>> = [];
   const dashboardService = {
     getReviewQueue: async (params: Record<string, unknown>) => {
@@ -90,6 +97,7 @@ test('manager review queue is forced to the manager branch', async () => {
   const controller = new DashboardController(dashboardService);
 
   await controller.getReviewQueue(
+    'manager-user-1',
     UserRole.MANAGER,
     { branchId: 'branch-a' },
     'branch-b',
@@ -102,17 +110,19 @@ test('manager review queue is forced to the manager branch', async () => {
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].branchId, 'branch-a');
+  assert.equal(calls[0].scopeManagerUserId, 'manager-user-1');
   assert.equal(calls[0].departmentId, 'dept-1');
   assert.equal(calls[0].page, 2);
   assert.equal(calls[0].pageSize, 25);
 });
 
-test('employee and approval service reads reject cross-branch access', async () => {
+test('employee and approval service reads reject manager scope mismatches', async () => {
   const employeesService = new EmployeesService({
     employee: {
       findUnique: async () => ({
         id: 'employee-1',
         branchId: 'branch-a',
+        managerUserId: 'manager-user-1',
         fullName: 'Employee One',
       }),
     },
@@ -125,6 +135,9 @@ test('employee and approval service reads reject cross-branch access', async () 
         branchId: 'branch-a',
         employeeId: 'employee-1',
         status: 'PENDING',
+        employee: {
+          managerUserId: 'manager-user-1',
+        },
       }),
     },
   } as never);
@@ -135,7 +148,12 @@ test('employee and approval service reads reject cross-branch access', async () 
   );
 
   await assert.rejects(
-    () => approvalsService.findOne('approval-1', 'branch-b'),
+    () => employeesService.findOne('employee-1', 'branch-a', 'manager-user-2'),
+    ForbiddenException,
+  );
+
+  await assert.rejects(
+    () => approvalsService.findOne('approval-1', 'branch-a', 'manager-user-2'),
     ForbiddenException,
   );
 });

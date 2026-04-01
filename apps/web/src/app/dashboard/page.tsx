@@ -9,7 +9,7 @@ import type { BranchSummaryResponse, DashboardTrendPoint, SystemSummaryResponse 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { AlertTriangle, ArrowRight, BarChart3, CalendarDays, CheckCircle2, Clock3, FileText, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BarChart3, CalendarDays, CheckCircle2, Clock3, FileText, Settings2, ShieldAlert } from 'lucide-react';
 
 type DashboardScope = 'system' | 'branch';
 
@@ -325,6 +325,14 @@ export default function DashboardPage() {
                   title="Attendance reports"
                   description="Xem bảng attendance với filter, export và drill-down."
                 />
+                {user?.role === 'ADMIN' && (
+                  <QuickAction
+                    href="/dashboard/settings"
+                    title="Thiết lập hệ thống"
+                    description="Cấu hình geofence chi nhánh và gán nhân viên cho quản lý."
+                    icon={<Settings2 className="h-4 w-4 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-slate-900" />}
+                  />
+                )}
               </CardContent>
             </Card>
 
@@ -385,10 +393,12 @@ function QuickAction({
   href,
   title,
   description,
+  icon,
 }: {
   href: string;
   title: string;
   description: string;
+  icon?: ReactNode;
 }) {
   return (
     <Link
@@ -400,7 +410,7 @@ function QuickAction({
           <p className="font-semibold text-slate-900">{title}</p>
           <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
         </div>
-        <ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-slate-900" />
+        {icon ?? <ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-slate-900" />}
       </div>
     </Link>
   );

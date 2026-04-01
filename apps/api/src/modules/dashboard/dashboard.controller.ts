@@ -58,6 +58,7 @@ export class DashboardController {
   @ApiOperation({ summary: 'Get branch dashboard summary' })
   @ApiResponse({ status: 200, description: 'Branch summary' })
   getBranchSummary(
+    @CurrentUser('id') userId: string,
     @CurrentUser('role') role: UserRole,
     @CurrentUser('employee') employee: { branchId?: string | null } | null,
     @Query('branchId') branchId: string,
@@ -71,6 +72,7 @@ export class DashboardController {
     return this.dashboardService.getBranchSummary(
       effectiveBranchId,
       date ? new Date(date) : undefined,
+      role === UserRole.MANAGER ? userId : undefined,
     );
   }
 
@@ -79,6 +81,7 @@ export class DashboardController {
   @ApiOperation({ summary: 'Get attendance trends' })
   @ApiResponse({ status: 200, description: 'Trends data' })
   getTrends(
+    @CurrentUser('id') userId: string,
     @CurrentUser('role') role: UserRole,
     @CurrentUser('employee') employee: { branchId?: string | null } | null,
     @Query('branchId') branchId?: string,
@@ -88,6 +91,7 @@ export class DashboardController {
     return this.dashboardService.getTrends({
       branchId: this.resolveManagerBranchId(role, employee, branchId),
       departmentId,
+      managerUserId: role === UserRole.MANAGER ? userId : undefined,
       days,
     });
   }
@@ -97,11 +101,16 @@ export class DashboardController {
   @ApiOperation({ summary: 'Get attendance heatmap' })
   @ApiResponse({ status: 200, description: 'Heatmap data' })
   getHeatmap(
+    @CurrentUser('id') userId: string,
     @CurrentUser('role') role: UserRole,
     @CurrentUser('employee') employee: { branchId?: string | null } | null,
     @Query('branchId') branchId?: string,
   ) {
-    return this.dashboardService.getHeatmap(this.resolveManagerBranchId(role, employee, branchId));
+    return this.dashboardService.getHeatmap(
+      this.resolveManagerBranchId(role, employee, branchId),
+      undefined,
+      role === UserRole.MANAGER ? userId : undefined,
+    );
   }
 
   @Get('review-queue')
@@ -109,6 +118,7 @@ export class DashboardController {
   @ApiOperation({ summary: 'Get review-ready attendance sessions' })
   @ApiResponse({ status: 200, description: 'Review queue data' })
   getReviewQueue(
+    @CurrentUser('id') userId: string,
     @CurrentUser('role') role: UserRole,
     @CurrentUser('employee') employee: { branchId?: string | null } | null,
     @Query('branchId') branchId?: string,
@@ -121,6 +131,7 @@ export class DashboardController {
     return this.dashboardService.getReviewQueue({
       branchId: this.resolveManagerBranchId(role, employee, branchId),
       departmentId,
+      scopeManagerUserId: role === UserRole.MANAGER ? userId : undefined,
       from: from ? new Date(from) : undefined,
       to: to ? new Date(to) : undefined,
       page: this.parseNumberQuery(page),

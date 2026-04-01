@@ -424,6 +424,7 @@ export class AttendanceService {
     reviewerId: string,
     note?: string,
     scopeBranchId?: string,
+    scopeManagerUserId?: string,
   ) {
     const session = await this.prisma.attendanceSession.findUnique({
       where: { id: sessionId },
@@ -434,6 +435,7 @@ export class AttendanceService {
             fullName: true,
             employeeCode: true,
             branchId: true,
+            managerUserId: true,
             departmentId: true,
             department: { select: { id: true, name: true } },
           },
@@ -463,6 +465,10 @@ export class AttendanceService {
     }
 
     if (scopeBranchId && session.branchId !== scopeBranchId) {
+      throw new ForbiddenException('You do not have access to this attendance session');
+    }
+
+    if (scopeManagerUserId && session.employee.managerUserId !== scopeManagerUserId) {
       throw new ForbiddenException('You do not have access to this attendance session');
     }
 
@@ -496,6 +502,7 @@ export class AttendanceService {
               fullName: true,
               employeeCode: true,
               branchId: true,
+              managerUserId: true,
               departmentId: true,
               department: { select: { id: true, name: true } },
             },

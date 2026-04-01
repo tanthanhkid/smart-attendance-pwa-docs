@@ -30,6 +30,11 @@ export class CreateEmployeeDto {
   @IsUUID()
   departmentId?: string;
 
+  @ApiPropertyOptional({ description: 'Manager user ID responsible for this employee' })
+  @IsOptional()
+  @IsUUID()
+  managerUserId?: string | null;
+
   @ApiProperty({ description: 'Email for user account' })
   @IsEmail()
   @IsNotEmpty()
@@ -63,7 +68,12 @@ export class UpdateEmployeeDto {
   @ApiPropertyOptional({ description: 'Department ID' })
   @IsOptional()
   @IsUUID()
-  departmentId?: string;
+  departmentId?: string | null;
+
+  @ApiPropertyOptional({ description: 'Manager user ID responsible for this employee' })
+  @IsOptional()
+  @IsUUID()
+  managerUserId?: string | null;
 
   @ApiPropertyOptional({ description: 'Active status' })
   @IsOptional()
