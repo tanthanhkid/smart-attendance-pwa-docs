@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { AlertTriangle, CheckCircle2, ClipboardList, RefreshCw, ShieldAlert } from 'lucide-react';
 
 function todayIso() {
-  return new Date().toISOString().split('T')[0];
+  return new Date().toISOString().split('T')[0] ?? '';
 }
 
 function formatDate(date: string) {
@@ -45,7 +45,7 @@ export default function DashboardReviewsPage() {
     const to = todayIso();
     const fromDate = new Date();
     fromDate.setDate(fromDate.getDate() - 14);
-    const from = fromDate.toISOString().split('T')[0];
+    const from = fromDate.toISOString().split('T')[0] ?? '';
 
     return {
       from,

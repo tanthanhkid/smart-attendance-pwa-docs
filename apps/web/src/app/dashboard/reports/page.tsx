@@ -9,13 +9,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Download, Filter, RefreshCw } from 'lucide-react';
 
 function todayIso() {
-  return new Date().toISOString().split('T')[0];
+  return new Date().toISOString().split('T')[0] ?? '';
 }
 
 function defaultFromIso() {
   const date = new Date();
   date.setDate(date.getDate() - 30);
-  return date.toISOString().split('T')[0];
+  return date.toISOString().split('T')[0] ?? '';
 }
 
 function formatDate(date: string) {
@@ -54,6 +54,12 @@ export default function DashboardReportsPage() {
 
   const isAdmin = user?.role === 'ADMIN';
   const activeBranchId = user?.role === 'MANAGER' ? user.employee?.branchId ?? '' : filters.branchId;
+  const reviewQuery =
+    filters.needsReview === 'all'
+      ? {}
+      : filters.needsReview === 'needs-review'
+        ? { needsReview: true }
+        : { recorded: true, flagged: false };
 
   const loadReports = async () => {
     if (!user || user.role === 'EMPLOYEE') {
@@ -70,10 +76,7 @@ export default function DashboardReportsPage() {
           to: filters.to,
           branchId: activeBranchId || undefined,
           status: filters.status || undefined,
-          needsReview:
-            filters.needsReview === 'all'
-              ? undefined
-              : filters.needsReview === 'needs-review',
+          ...reviewQuery,
           page: 1,
           pageSize: 50,
         }),
@@ -116,6 +119,7 @@ export default function DashboardReportsPage() {
         from: filters.from,
         to: filters.to,
         branchId: activeBranchId || undefined,
+        departmentId: undefined,
       });
 
       const url = window.URL.createObjectURL(blob);
