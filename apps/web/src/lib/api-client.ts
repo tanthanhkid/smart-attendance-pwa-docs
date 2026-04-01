@@ -101,6 +101,140 @@ export interface BranchSummaryResponse {
   attendanceRate: number;
 }
 
+export interface DashboardTrendPoint {
+  date: string;
+  status: string;
+  count: number;
+}
+
+export interface BranchListItem {
+  id: string;
+  code: string;
+  name: string;
+  isActive?: boolean;
+}
+
+export interface BranchListResponse {
+  items: BranchListItem[];
+  hasMore: boolean;
+  nextCursor?: string;
+}
+
+export interface AttendanceReportEmployee {
+  id: string;
+  fullName: string;
+  employeeCode: string;
+}
+
+export interface AttendanceReportBranch {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export interface AttendanceReportFlag {
+  code: string;
+  message: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH';
+}
+
+export interface AttendanceReportItem {
+  id: string;
+  workDate: string;
+  status: string | null;
+  checkInAt: string | null;
+  checkOutAt: string | null;
+  totalMinutes: number | null;
+  overtimeMinutes: number | null;
+  riskScore: number;
+  isFlagged: boolean;
+  recorded: boolean;
+  employee: AttendanceReportEmployee;
+  branch: AttendanceReportBranch;
+  flags?: AttendanceReportFlag[];
+  review?: {
+    recorded: boolean;
+    flagged: boolean;
+    requiresReview: boolean;
+    state: 'RECORDED' | 'FLAGGED' | 'UNRECORDED';
+    reasons: string[];
+  };
+  checkInEvent?: {
+    id: string;
+    type: string;
+    occurredAt: string;
+    accuracyMeters: number | null;
+    distanceMeters: number | null;
+    decision: string | null;
+  } | null;
+  checkOutEvent?: {
+    id: string;
+    type: string;
+    occurredAt: string;
+    accuracyMeters: number | null;
+    distanceMeters: number | null;
+    decision: string | null;
+  } | null;
+}
+
+export interface AttendanceReportResponse {
+  items: AttendanceReportItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface AttendanceReportExportMetadata {
+  filename: string;
+  contentType: string;
+  totalMatched: number;
+  exportedCount: number;
+  truncated: boolean;
+  limit: number;
+  downloadUrl: string;
+}
+
+export interface ApprovalRequestEmployee {
+  id: string;
+  fullName: string;
+  employeeCode: string;
+}
+
+export interface ApprovalRequestBranch {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export interface ApprovalRequestSession {
+  id: string;
+  checkInAt: string | null;
+  checkOutAt: string | null;
+  workDate: string;
+  riskScore?: number;
+  isFlagged?: boolean;
+}
+
+export interface ApprovalRequestItem {
+  id: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  reason: string;
+  requestedCheckInAt: string | null;
+  requestedCheckOutAt: string | null;
+  reviewedAt: string | null;
+  reviewedByUserId: string | null;
+  employee: ApprovalRequestEmployee;
+  branch: ApprovalRequestBranch;
+  session: ApprovalRequestSession | null;
+}
+
+export interface ApprovalRequestResponse {
+  items: ApprovalRequestItem[];
+  hasMore: boolean;
+  nextCursor?: string;
+}
+
 const MAX_RETRY_COUNT = 3;
 const QUEUE_KEY = 'smart-attendance-request-queue';
 
@@ -516,13 +650,20 @@ class ApiClient {
     return this.request('/attendance/manual-requests', { method: 'POST', body: JSON.stringify(data) });
   }
 
+  async recordAttendanceReview(id: string, note?: string) {
+    return this.request(`/attendance/${id}/record`, {
+      method: 'POST',
+      body: JSON.stringify(note ? { note } : {}),
+    });
+  }
+
   // Branches
   async getBranches(params?: { cursor?: string; limit?: number; search?: string }) {
     const query = new URLSearchParams();
     if (params?.cursor) query.set('cursor', params.cursor);
     if (params?.limit) query.set('limit', String(params.limit));
     if (params?.search) query.set('search', params.search);
-    return this.request(`/branches?${query}`);
+    return this.request<BranchListResponse>(`/branches?${query}`);
   }
 
   async getBranch(id: string) {
@@ -574,7 +715,7 @@ class ApiClient {
     const query = new URLSearchParams();
     if (params?.branchId) query.set('branchId', params.branchId);
     if (params?.days) query.set('days', String(params.days));
-    return this.request(`/dashboard/trends?${query}`);
+    return this.request<DashboardTrendPoint[]>(`/dashboard/trends?${query}`);
   }
 
   // Approvals
@@ -584,7 +725,7 @@ class ApiClient {
     if (params?.limit) query.set('limit', String(params.limit));
     if (params?.status) query.set('status', params.status);
     if (params?.branchId) query.set('branchId', params.branchId);
-    return this.request(`/approvals?${query}`);
+    return this.request<ApprovalRequestResponse>(`/approvals?${query}`);
   }
 
   async approveRequest(id: string) {
@@ -600,17 +741,69 @@ class ApiClient {
     from: string;
     to: string;
     branchId?: string;
+    departmentId?: string;
+    employeeId?: string;
+    status?: string;
+    needsReview?: boolean;
+    recorded?: boolean;
+    flagged?: boolean;
     page?: number;
     pageSize?: number;
+  }): Promise<AttendanceReportResponse> {
+    const query = new URLSearchParams({
+      from: params.from,
+      to: params.to,
+    });
+    if (params.branchId) query.set('branchId', params.branchId);
+    if (params.departmentId) query.set('departmentId', params.departmentId);
+    if (params.employeeId) query.set('employeeId', params.employeeId);
+    if (params.status) query.set('status', params.status);
+    if (params.needsReview !== undefined) query.set('needsReview', String(params.needsReview));
+    if (params.recorded !== undefined) query.set('recorded', String(params.recorded));
+    if (params.flagged !== undefined) query.set('flagged', String(params.flagged));
+    if (params.page) query.set('page', String(params.page));
+    if (params.pageSize) query.set('pageSize', String(params.pageSize));
+    return this.request<AttendanceReportResponse>(`/reports/attendance?${query}`);
+  }
+
+  async getAttendanceReportExport(params: {
+    from: string;
+    to: string;
+    branchId?: string;
+    departmentId?: string;
   }) {
     const query = new URLSearchParams({
       from: params.from,
       to: params.to,
     });
     if (params.branchId) query.set('branchId', params.branchId);
-    if (params.page) query.set('page', String(params.page));
-    if (params.pageSize) query.set('pageSize', String(params.pageSize));
-    return this.request(`/reports/attendance?${query}`);
+    if (params.departmentId) query.set('departmentId', params.departmentId);
+    return this.request<AttendanceReportExportMetadata>(`/reports/export?${query}`);
+  }
+
+  async downloadAttendanceReport(params: {
+    from: string;
+    to: string;
+    branchId?: string;
+    departmentId?: string;
+  }): Promise<Blob> {
+    const query = new URLSearchParams({
+      from: params.from,
+      to: params.to,
+    });
+    if (params.branchId) query.set('branchId', params.branchId);
+    if (params.departmentId) query.set('departmentId', params.departmentId);
+
+    const url = `${this.baseUrl}/reports/download?${query}`;
+    const headers = this.getHeaders({});
+    const response = await fetch(url, { headers });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Failed to download report');
+      throw new Error(errorText || 'Failed to download report');
+    }
+
+    return response.blob();
   }
 }
 
