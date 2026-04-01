@@ -8,12 +8,13 @@ import {
   HttpCode,
   HttpStatus,
   ForbiddenException,
+  Param,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AttendanceService } from './attendance.service';
-import { JwtAuthGuard } from '@/common';
+import { JwtAuthGuard, Roles, RolesGuard, UserRole } from '@/common';
 import { CurrentUser } from '@/common';
-import { CheckInDto, CheckOutDto, AttendanceHistoryQueryDto, ManualCorrectionDto } from './dto';
+import { CheckInDto, CheckOutDto, AttendanceHistoryQueryDto, ManualCorrectionDto, RecordAttendanceReviewDto } from './dto';
 
 @ApiTags('attendance')
 @ApiBearerAuth()
@@ -85,5 +86,28 @@ export class AttendanceController {
       userId,
       dto,
     );
+  }
+
+  @Post(':id/record')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Record a flagged/unrecorded attendance session after manager review' })
+  @ApiResponse({ status: 200, description: 'Attendance session recorded' })
+  recordAttendanceReview(
+    @Param('id') id: string,
+    @CurrentUser('id') reviewerId: string,
+    @CurrentUser('role') role: UserRole,
+    @CurrentUser('employee') employee: { branchId?: string | null } | null,
+    @Body() dto: RecordAttendanceReviewDto,
+  ) {
+    const scopeBranchId =
+      role === UserRole.MANAGER ? employee?.branchId ?? undefined : undefined;
+
+    if (role === UserRole.MANAGER && !scopeBranchId) {
+      throw new ForbiddenException('Manager branch context is required');
+    }
+
+    return this.attendanceService.recordAttendanceReview(id, reviewerId, dto.note, scopeBranchId);
   }
 }

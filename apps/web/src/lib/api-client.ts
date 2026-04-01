@@ -650,6 +650,13 @@ class ApiClient {
     return this.request('/attendance/manual-requests', { method: 'POST', body: JSON.stringify(data) });
   }
 
+  async recordAttendanceReview(id: string, note?: string) {
+    return this.request(`/attendance/${id}/record`, {
+      method: 'POST',
+      body: JSON.stringify(note ? { note } : {}),
+    });
+  }
+
   // Branches
   async getBranches(params?: { cursor?: string; limit?: number; search?: string }) {
     const query = new URLSearchParams();

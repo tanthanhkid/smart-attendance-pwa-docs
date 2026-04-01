@@ -11,6 +11,22 @@ import { AttendanceStatus, JwtAuthGuard, RolesGuard, Roles, UserRole, isEnumValu
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
+  private parseBooleanQuery(value?: string): boolean | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    if (value === 'true') {
+      return true;
+    }
+
+    if (value === 'false') {
+      return false;
+    }
+
+    return undefined;
+  }
+
   private buildDownloadUrl(params: {
     from: string;
     to: string;
@@ -62,6 +78,9 @@ export class ReportsController {
     @Query('departmentId') departmentId?: string,
     @Query('employeeId') employeeId?: string,
     @Query('status') status?: string,
+    @Query('needsReview') needsReview?: string,
+    @Query('recorded') recorded?: string,
+    @Query('flagged') flagged?: string,
     @Query('page') page?: number,
     @Query('pageSize') pageSize?: number,
   ) {
@@ -73,6 +92,9 @@ export class ReportsController {
       departmentId,
       employeeId,
       status: isEnumValue(AttendanceStatus, status) ? status : undefined,
+      needsReview: this.parseBooleanQuery(needsReview),
+      recorded: this.parseBooleanQuery(recorded),
+      flagged: this.parseBooleanQuery(flagged),
       page: page ?? 1,
       pageSize: pageSize ?? 50,
     });

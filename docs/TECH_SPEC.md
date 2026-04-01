@@ -5,17 +5,16 @@
 - Next.js App Router
 - TypeScript
 - Tailwind CSS
-- next-pwa hoặc service worker setup custom
+- custom service worker / PWA setup
 - TanStack Query
 - React Hook Form + Zod
-- Leaflet hoặc Mapbox cho geofence map preview
 
 ### Backend
 - NestJS
 - Prisma
 - PostgreSQL
-- Redis
-- BullMQ (nếu cần queue về sau)
+- Redis (optional / future-oriented in current local path)
+- BullMQ (chưa dùng ở implementation hiện tại)
 - Swagger OpenAPI
 
 ## 2. Frontend architecture
@@ -26,14 +25,14 @@
 - install prompt manager
 - offline shell
 - retry UX khi mất mạng
+- employee-first attendance screens đã có
+- manager/admin UI hiện mới ở mức dashboard cơ bản
 
 ## 3. Backend architecture
 - feature modules
 - DTO + validation
 - service layer
-- Prisma repository helpers
 - centralized config
-- exception filters
 - audit logging
 
 ## 4. Attendance algorithm
@@ -43,8 +42,9 @@
 3. Server lấy branch geofence tương ứng
 4. Tính khoảng cách tới tâm geofence
 5. Tính risk score
-6. Nếu pass -> tạo attendance session + check-in event
-7. Nếu nghi ngờ -> tạo flag + allow/review theo policy
+6. Luôn lưu attendance session + event nếu request hợp lệ
+7. Nếu risk cao -> session được lưu nhưng `status = null` để manager review
+8. Nếu risk trung bình -> allow with flag
 
 ### Check-out
 1. Kiểm tra ca mở
@@ -62,10 +62,10 @@
 - repeated_failures = +15
 - time_skew = +20
 
-### Policy
+### Policy hiện tại
 - 0–19: allow
 - 20–49: allow_with_flag
-- >= 50: reject or manager review
+- >= 50: session chưa ghi nhận, cần manager review
 
 ## 6. PWA notes
 - installable manifest
@@ -73,6 +73,7 @@
 - geolocation only in secure context
 - defer permission request tới đúng user action
 - không hứa đọc WiFi SSID/BSSID trên browser
+- install prompt có cooldown 5 ngày khi user bấm đóng
 
 ## 7. Observability
 - request logging
@@ -90,3 +91,4 @@
 ## 9. Current implementation notes
 - Export report hiện là sync CSV, chưa phải background export queue.
 - Seed local hiện ưu tiên boot nhanh; scale target và scale demo là hai chuyện khác nhau.
+- Local PostgreSQL credential mặc định hiện project đang dùng là `mtc_admin`.

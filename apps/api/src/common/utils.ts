@@ -110,3 +110,44 @@ export function isEnumValue<T extends Record<string, string>>(
 ): value is T[keyof T] {
   return typeof value === 'string' && Object.values(enumObject).includes(value as T[keyof T]);
 }
+
+export interface AttendanceReviewSummary {
+  recorded: boolean;
+  flagged: boolean;
+  requiresReview: boolean;
+  state: 'RECORDED' | 'FLAGGED' | 'UNRECORDED';
+  reasons: string[];
+}
+
+export function summarizeAttendanceReview(params: {
+  status: string | null;
+  isFlagged: boolean;
+  riskScore?: number;
+  flags?: Array<{ code: string; message: string }>;
+}): AttendanceReviewSummary {
+  const recorded = params.status !== null;
+  const flagged = params.isFlagged;
+  const requiresReview = !recorded || flagged;
+  const state = !recorded ? 'UNRECORDED' : flagged ? 'FLAGGED' : 'RECORDED';
+  const reasons = new Set<string>();
+
+  if (!recorded) {
+    reasons.add('Session is not recorded yet');
+  }
+
+  if (flagged) {
+    reasons.add(`Risk score ${params.riskScore ?? 0}`);
+  }
+
+  for (const flag of params.flags ?? []) {
+    reasons.add(flag.message);
+  }
+
+  return {
+    recorded,
+    flagged,
+    requiresReview,
+    state,
+    reasons: Array.from(reasons),
+  };
+}

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { AttendanceStatus, PrismaService, formatDateISO } from '@/common';
-import { Prisma } from '@prisma/client';
+import { PrismaService, formatDateISO, summarizeAttendanceReview } from '@/common';
+import { Prisma, AttendanceStatus as PrismaAttendanceStatus } from '@prisma/client';
 
 export const MAX_REPORT_PAGE_SIZE = 1000;
 const CSV_HEADERS = [
@@ -19,9 +19,131 @@ const CSV_HEADERS = [
   'risk_score',
 ] as const;
 
+type AttendanceReportEmployee = {
+  id: string;
+  fullName: string;
+  employeeCode: string;
+  branchId: string;
+  departmentId: string | null;
+  department: { id: string; name: string } | null;
+};
+
+type AttendanceReportBranch = {
+  id: string;
+  name: string;
+  code: string;
+};
+
+type AttendanceReportFlag = {
+  id: string;
+  code: string;
+  message: string;
+  severity: string;
+  createdAt: Date;
+};
+
+type AttendanceReportEvent = {
+  id: string;
+  type: string;
+  occurredAt: Date;
+  accuracyMeters: number | null;
+  distanceMeters: number | null;
+  decision: string | null;
+};
+
+export interface AttendanceReportItem {
+  id: string;
+  employeeId: string;
+  branchId: string;
+  workDate: Date;
+  status: PrismaAttendanceStatus | null;
+  checkInAt: Date | null;
+  checkOutAt: Date | null;
+  totalMinutes: number | null;
+  overtimeMinutes: number | null;
+  riskScore: number;
+  isFlagged: boolean;
+  recorded: boolean;
+  employee: {
+    id: string;
+    fullName: string;
+    employeeCode: string;
+    branchId: string;
+    departmentId: string | null;
+    departmentName: string | null;
+  };
+  branch: AttendanceReportBranch;
+  flags: AttendanceReportFlag[];
+  review: ReturnType<typeof summarizeAttendanceReview>;
+  checkInEvent: AttendanceReportEvent | null;
+  checkOutEvent: AttendanceReportEvent | null;
+}
+
 @Injectable()
 export class ReportsService {
   constructor(private prisma: PrismaService) {}
+
+  private mapReviewEvent(event: AttendanceReportEvent | undefined): AttendanceReportEvent | null {
+    return event ?? null;
+  }
+
+  private mapReportSession(session: {
+    id: string;
+    employeeId: string;
+    branchId: string;
+    workDate: Date;
+    status: PrismaAttendanceStatus | null;
+    checkInAt: Date | null;
+    checkOutAt: Date | null;
+    totalMinutes: number | null;
+    overtimeMinutes: number | null;
+    riskScore: number;
+    isFlagged: boolean;
+    employee: AttendanceReportEmployee;
+    branch: AttendanceReportBranch;
+    flags: AttendanceReportFlag[];
+    events: AttendanceReportEvent[];
+  }): AttendanceReportItem {
+    const checkInEvent = this.mapReviewEvent(
+      session.events.find((event) => event.type === 'CHECK_IN'),
+    );
+    const checkOutEvent = this.mapReviewEvent(
+      session.events.find((event) => event.type === 'CHECK_OUT'),
+    );
+
+    return {
+      id: session.id,
+      employeeId: session.employeeId,
+      branchId: session.branchId,
+      workDate: session.workDate,
+      status: session.status,
+      checkInAt: session.checkInAt,
+      checkOutAt: session.checkOutAt,
+      totalMinutes: session.totalMinutes,
+      overtimeMinutes: session.overtimeMinutes,
+      riskScore: session.riskScore,
+      isFlagged: session.isFlagged,
+      recorded: session.status !== null,
+      employee: {
+        id: session.employee.id,
+        fullName: session.employee.fullName,
+        employeeCode: session.employee.employeeCode,
+        branchId: session.employee.branchId,
+        departmentId: session.employee.departmentId,
+        departmentName: session.employee.department?.name ?? null,
+      },
+      branch: session.branch,
+      flags: session.flags,
+      review: summarizeAttendanceReview({
+        status: session.status,
+        isFlagged: session.isFlagged,
+        riskScore: session.riskScore,
+        flags: session.flags,
+      }),
+      checkInEvent,
+      checkOutEvent,
+    };
+  }
 
   async getAttendanceReport(params: {
     from: Date;
@@ -29,7 +151,10 @@ export class ReportsService {
     branchId?: string;
     departmentId?: string;
     employeeId?: string;
-    status?: AttendanceStatus;
+    status?: PrismaAttendanceStatus;
+    needsReview?: boolean;
+    recorded?: boolean;
+    flagged?: boolean;
     page?: number;
     pageSize?: number;
   }) {
@@ -40,6 +165,9 @@ export class ReportsService {
       departmentId,
       employeeId,
       status,
+      needsReview,
+      recorded,
+      flagged,
       page = 1,
       pageSize = 50,
     } = params;
@@ -66,6 +194,25 @@ export class ReportsService {
       where.employee = { departmentId };
     }
 
+    const reviewConditions: Prisma.AttendanceSessionWhereInput[] = [];
+    if (needsReview !== undefined) {
+      reviewConditions.push(
+        needsReview
+          ? { OR: [{ status: null }, { isFlagged: true }] }
+          : { status: { not: null }, isFlagged: false },
+      );
+    }
+    if (recorded !== undefined) {
+      reviewConditions.push({ status: recorded ? { not: null } : null });
+    }
+    if (flagged !== undefined) {
+      reviewConditions.push({ isFlagged: flagged });
+    }
+
+    if (reviewConditions.length > 0) {
+      where.AND = reviewConditions;
+    }
+
     const [items, total] = await Promise.all([
       this.prisma.attendanceSession.findMany({
         where,
@@ -78,6 +225,9 @@ export class ReportsService {
               id: true,
               fullName: true,
               employeeCode: true,
+              branchId: true,
+              departmentId: true,
+              department: { select: { id: true, name: true } },
             },
           },
           branch: {
@@ -87,16 +237,34 @@ export class ReportsService {
               code: true,
             },
           },
+          flags: {
+            select: {
+              id: true,
+              attendanceSessionId: true,
+              code: true,
+              message: true,
+              severity: true,
+              createdAt: true,
+            },
+          },
+          events: {
+            orderBy: { occurredAt: 'asc' },
+            select: {
+              id: true,
+              type: true,
+              occurredAt: true,
+              accuracyMeters: true,
+              distanceMeters: true,
+              decision: true,
+            },
+          },
         },
       }),
       this.prisma.attendanceSession.count({ where }),
     ]);
 
     return {
-      items: items.map((session) => ({
-        ...session,
-        recorded: session.status !== null,
-      })),
+      items: items.map((session) => this.mapReportSession(session)),
       total,
       page: normalizedPage,
       pageSize: normalizedPageSize,
@@ -127,7 +295,7 @@ export class ReportsService {
       total_minutes: session.totalMinutes || 0,
       overtime_minutes: session.overtimeMinutes || 0,
       status: session.status || 'UNKNOWN',
-      recorded: session.status !== null,
+      recorded: session.recorded,
       flagged: session.isFlagged,
       risk_score: session.riskScore,
     }));
