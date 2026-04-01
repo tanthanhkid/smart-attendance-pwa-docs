@@ -47,6 +47,59 @@ scripts/        # local helper scripts
 - PostgreSQL
 - Swagger
 
+## Architecture
+
+### System overview
+
+```mermaid
+flowchart LR
+    Employee["Employee / Manager / Admin"] --> Web["Next.js PWA (apps/web)"]
+    Web --> Auth["Auth + JWT + RBAC"]
+    Web --> API["NestJS API (apps/api)"]
+
+    subgraph Backend["Backend modules"]
+        Auth --> Attendance["Attendance module"]
+        Auth --> Dashboard["Dashboard module"]
+        Auth --> Reports["Reports module"]
+        Auth --> Approvals["Approvals module"]
+        Attendance --> Risk["Risk scoring + geofence checks"]
+        Attendance --> Offline["Offline sync recovery"]
+        Dashboard --> Review["Manager review queue"]
+        Reports --> Export["CSV export"]
+    end
+
+    Attendance --> Prisma["Prisma ORM"]
+    Dashboard --> Prisma
+    Reports --> Prisma
+    Approvals --> Prisma
+    Prisma --> Postgres["PostgreSQL"]
+
+    Shared["packages/shared-types"] --> Web
+    Shared --> API
+```
+
+### Runtime and deployment flow
+
+```mermaid
+flowchart TB
+    Browser["Browser / Mobile PWA"] --> CF["Cloudflare DNS"]
+    CF --> Nginx["Nginx reverse proxy"]
+    Nginx --> WebRuntime["Next.js runtime on PM2 :3100"]
+    Nginx --> ApiRuntime["NestJS runtime on PM2 :4100"]
+    ApiRuntime --> Db["PostgreSQL"]
+
+    Browser --> SW["Service Worker + local queue"]
+    SW --> WebRuntime
+```
+
+### Key architecture notes
+
+- `apps/web` là lớp PWA cho employee, manager, admin; ưu tiên mobile-first cho luồng chấm công.
+- `apps/api` là REST API trung tâm, xử lý auth, attendance, approvals, dashboard và reports.
+- `packages/shared-types` giữ DTO/type dùng chung để contract giữa web và API nhất quán hơn.
+- Attendance events luôn được lưu trước; nếu risk cao thì session có thể ở trạng thái `chưa ghi nhận` để manager review sau.
+- Deploy hiện tại dùng `Nginx` làm reverse proxy cho web và API, còn process app được giữ bởi `PM2`.
+
 ## Current Status
 
 ### Working now
