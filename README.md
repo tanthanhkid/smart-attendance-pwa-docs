@@ -1,69 +1,72 @@
 # Smart Attendance PWA
 
-Smart Attendance PWA là monorepo local-first cho bài toán chấm công thông minh theo chi nhánh, gồm:
+![Monorepo](https://img.shields.io/badge/Monorepo-pnpm-F69220?logo=pnpm&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=next.js)
+![NestJS](https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Prisma-336791?logo=postgresql&logoColor=white)
+![Status](https://img.shields.io/badge/Status-Active%20Development-2563EB)
 
-- frontend PWA bằng Next.js
-- backend REST API bằng NestJS
-- PostgreSQL qua Prisma
-- bộ docs để chạy local, hiểu kiến trúc, và cộng tác theo workflow rõ ràng
+Smart Attendance PWA is a public monorepo for a branch-aware attendance system built with Next.js, NestJS, Prisma, and PostgreSQL. The project focuses on mobile-first attendance capture, manager review workflows, geolocation-based risk scoring, and a local-first developer setup that does not require Docker to get started.
 
-## Highlights
+## Overview
 
-- employee check-in/check-out bằng geolocation
-- risk scoring cho attendance
-- check-in rủi ro cao vẫn được lưu nhưng có thể `chưa ghi nhận`
-- dashboard tổng quan cho manager/admin
-- manager review queue cho các session cần xem lại
-- report attendance và export CSV
-- offline queue cơ bản cho attendance request
-- PWA install prompt với cooldown khi người dùng đóng banner
+- Employee check-in and check-out with browser geolocation
+- Risk-aware attendance flow with geofence, distance, accuracy, and speed checks
+- Manager review queue for unrecorded or flagged sessions
+- Attendance reports with CSV export and direct Google Maps links for event coordinates
+- Offline-friendly web app with queued attendance requests
+- Public deployment behind Nginx with separate web and API runtimes
 
-## Repo Structure
+## Live Endpoints
 
-```text
-apps/
-  api/          # NestJS API
-  web/          # Next.js PWA
-packages/
-  shared-types/ # shared DTOs/types
-docs/           # product, technical, API, DB, workflow docs
-scripts/        # local helper scripts
-```
+- Web: [https://chamcong.phanmemtrinity.com](https://chamcong.phanmemtrinity.com)
+- API Docs: [https://chamcong.phanmemtrinity.com/docs](https://chamcong.phanmemtrinity.com/docs)
 
-## Tech Stack
+## Product Behavior
 
-### Frontend
+Unlike traditional attendance apps that hard-block suspicious check-ins, this system accepts the event first and lets managers decide whether the session should be officially recorded. That keeps the employee flow lightweight while still preserving auditability and operational control.
 
-- Next.js 15
-- TypeScript
-- Tailwind CSS
-- React Hook Form
-- Zod
+Current important behavior:
 
-### Backend
+- high-risk check-ins are stored, not silently discarded
+- sessions can remain `unrecorded` until reviewed by a manager
+- reports and dashboard surfaces clearly distinguish recorded and unrecorded attendance
+- flagged sessions keep their risk score, review reasons, and raw location metadata
 
-- NestJS 11
-- Prisma
-- PostgreSQL
-- Swagger
+## Feature Set
+
+### Employee
+
+- login with role-aware access control
+- check-in and check-out from mobile browser
+- attendance history
+- manual correction request flow
+- offline queue for attendance requests when the network is unstable
+
+### Manager and Admin
+
+- dashboard summary
+- review queue for flagged and unrecorded sessions
+- attendance reporting with filters
+- CSV export
+- event coordinate inspection through Google Maps links in reports
 
 ## Architecture
 
-### System overview
+### Logical architecture
 
 ```mermaid
 flowchart LR
-    Employee["Employee / Manager / Admin"] --> Web["Next.js PWA (apps/web)"]
-    Web --> Auth["Auth + JWT + RBAC"]
+    User["Employee / Manager / Admin"] --> Web["Next.js PWA (apps/web)"]
+    Web --> Auth["JWT Auth + RBAC"]
     Web --> API["NestJS API (apps/api)"]
 
     subgraph Backend["Backend modules"]
-        Auth --> Attendance["Attendance module"]
-        Auth --> Dashboard["Dashboard module"]
-        Auth --> Reports["Reports module"]
-        Auth --> Approvals["Approvals module"]
+        Auth --> Attendance["Attendance"]
+        Auth --> Dashboard["Dashboard"]
+        Auth --> Reports["Reports"]
+        Auth --> Approvals["Approvals"]
         Attendance --> Risk["Risk scoring + geofence checks"]
-        Attendance --> Offline["Offline sync recovery"]
         Dashboard --> Review["Manager review queue"]
         Reports --> Export["CSV export"]
     end
@@ -82,56 +85,66 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    Browser["Browser / Mobile PWA"] --> CF["Cloudflare DNS"]
-    CF --> Nginx["Nginx reverse proxy"]
+    Browser["Browser / Mobile PWA"] --> DNS["Cloudflare DNS"]
+    DNS --> Nginx["Nginx reverse proxy"]
     Nginx --> WebRuntime["Next.js runtime on PM2 :3100"]
     Nginx --> ApiRuntime["NestJS runtime on PM2 :4100"]
     ApiRuntime --> Db["PostgreSQL"]
-
-    Browser --> SW["Service Worker + local queue"]
+    Browser --> SW["Service worker + local queue"]
     SW --> WebRuntime
 ```
 
-### Key architecture notes
+### Architecture notes
 
-- `apps/web` là lớp PWA cho employee, manager, admin; ưu tiên mobile-first cho luồng chấm công.
-- `apps/api` là REST API trung tâm, xử lý auth, attendance, approvals, dashboard và reports.
-- `packages/shared-types` giữ DTO/type dùng chung để contract giữa web và API nhất quán hơn.
-- Attendance events luôn được lưu trước; nếu risk cao thì session có thể ở trạng thái `chưa ghi nhận` để manager review sau.
-- Deploy hiện tại dùng `Nginx` làm reverse proxy cho web và API, còn process app được giữ bởi `PM2`.
+- `apps/web` contains the PWA used by employees, managers, and admins.
+- `apps/api` exposes the REST API, Swagger docs, attendance logic, and reporting endpoints.
+- `packages/shared-types` keeps shared contracts aligned between the frontend and backend.
+- The attendance pipeline stores events first, then applies review state and recording rules.
+- The current public deployment uses Nginx for routing and PM2 for process supervision.
 
-## Current Status
+## Tech Stack
 
-### Working now
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 15, TypeScript, Tailwind CSS, React Hook Form, Zod |
+| Backend | NestJS 11, TypeScript, Swagger |
+| Data | Prisma, PostgreSQL |
+| Tooling | pnpm, Husky, lint-staged |
+| Deployment | Nginx, PM2, Cloudflare DNS |
 
-- auth và RBAC cho `ADMIN`, `MANAGER`, `EMPLOYEE`
-- employee attendance flow
-- attendance history
-- manual correction request
-- dashboard summary
-- attendance report backend
-- CSV export backend
-- local-first boot không bắt buộc Docker
+## Repository Structure
 
-### Important current behavior
+```text
+apps/
+  api/          # NestJS API
+  web/          # Next.js PWA
+packages/
+  shared-types/ # shared DTOs and types
+docs/           # product, architecture, API, DB, workflow docs
+scripts/        # local helper scripts
+```
 
-- check-in không còn bị chặn cứng chỉ vì risk cao
-- nếu risk đủ cao, session được lưu với trạng thái `chưa ghi nhận`
-- manager/admin sẽ thấy điều này qua dashboard/report
-
-## Local Setup
+## Getting Started
 
 ### Prerequisites
 
 - Node.js
 - `pnpm`
-- PostgreSQL local đang chạy
-- database `smart_attendance`
-- user local hiện repo mặc định đang dùng:
-  - `mtc_admin`
-  - `mtc_secret_2026`
+- PostgreSQL running locally
+- a local database named `smart_attendance`
 
-### Install and run
+### Environment
+
+Copy `.env.example` to `.env` and update values if needed. The current local-first setup expects a PostgreSQL connection like:
+
+```env
+DATABASE_URL=postgresql://mtc_admin:mtc_secret_2026@127.0.0.1:5432/smart_attendance?schema=public
+NEXT_PUBLIC_API_URL=http://localhost:4000/api
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+PORT=4000
+```
+
+### Local setup
 
 ```bash
 pnpm install
@@ -157,36 +170,33 @@ pnpm dev:web
 | Manager | `manager1@smart-attendance.com` | `manager123` |
 | Employee | `employee1@smart-attendance.com` | `employee123` |
 
-## Useful Commands
+## Common Commands
 
 ```bash
-pnpm check:db
-pnpm db:push
-pnpm db:seed
 pnpm dev:api
 pnpm dev:web
+pnpm build
 pnpm test
 pnpm typecheck
-netlify build
+pnpm db:push
+pnpm db:seed
+pnpm check:db
 ```
 
-## Netlify Deploy
+## Deployment Notes
 
-- Repo đã có `netlify.toml` cho frontend Next.js trong monorepo.
-- Để deploy dùng được thật, cần cấu hình `NEXT_PUBLIC_API_URL` trỏ tới API public, không phải `localhost`.
-- Quy trình tối thiểu:
+### Current public deployment
 
-```bash
-netlify link
-netlify env:set NEXT_PUBLIC_API_URL https://your-api.example.com/api
-netlify env:set NEXT_PUBLIC_APP_URL https://your-site.netlify.app
-netlify build
-netlify deploy --build
-```
+- Cloudflare DNS points the subdomain to a VPS
+- Nginx routes `/` to the web runtime and `/api` plus `/docs` to the API runtime
+- PM2 manages the web and API processes
+- PostgreSQL runs on the same VPS
 
-- Nếu chỉ deploy web mà API vẫn chạy local, bản Netlify chỉ dùng để xem shell/UI chứ không chạy full flow attendance thực tế.
+### Netlify
 
-## Documentation
+The repository also contains `netlify.toml` for frontend deployment experiments. To make a Netlify frontend usable in practice, `NEXT_PUBLIC_API_URL` must point to a public API instead of `localhost`.
+
+## Documentation Map
 
 - [Documentation Hub](./docs/README.md)
 - [Current State](./docs/CURRENT_STATE.md)
@@ -199,22 +209,28 @@ netlify deploy --build
 - [Release Guide](./docs/RELEASE.md)
 - [Git Workflow](./docs/GIT_WORKFLOW.md)
 
-## Git Workflow
-
-Repo này theo hướng:
-
-- `main` luôn giữ trạng thái có thể demo/chạy được
-- làm việc qua branch riêng cho từng thay đổi
-- ưu tiên Conventional Commits
-- AI-generated code phải được review kỹ trước khi merge
-- release branch, tag và deploy flow được mô tả ở [docs/RELEASE.md](./docs/RELEASE.md)
-
-Chi tiết xem tại [docs/GIT_WORKFLOW.md](./docs/GIT_WORKFLOW.md).
-
 ## Contributing
 
-Hướng dẫn đóng góp, cách đặt tên branch, commit, PR checklist xem tại [CONTRIBUTING.md](./CONTRIBUTING.md).
+Contributions should follow the repository workflow documented in [CONTRIBUTING.md](./CONTRIBUTING.md) and [docs/GIT_WORKFLOW.md](./docs/GIT_WORKFLOW.md).
+
+Repository conventions:
+
+- `main` should remain demoable and deployable
+- changes should go through dedicated branches and pull requests
+- Conventional Commits are preferred
+- documentation should be updated when behavior changes
+
+## Current Scope and Gaps
+
+This repository is already usable for demos and internal workflows, but it is not positioned as a fully production-hardened attendance platform yet.
+
+Known gaps include:
+
+- limited admin CRUD coverage in the web UI
+- no end-to-end browser test suite yet
+- no background job system for large exports
+- offline sync is pragmatic, not a full production sync engine
 
 ## Changelog
 
-Theo dõi mốc thay đổi dự án tại [CHANGELOG.md](./CHANGELOG.md).
+Project changes are tracked in [CHANGELOG.md](./CHANGELOG.md).
