@@ -53,3 +53,4 @@ pnpm dev:web
 - This repo is pnpm-first.
 - Docker is optional for local work, not the main boot path.
 - Demo seed is intentionally small: 5 branches and 50 employees.
+- Current local PostgreSQL default in project docs is `mtc_admin / mtc_secret_2026`.

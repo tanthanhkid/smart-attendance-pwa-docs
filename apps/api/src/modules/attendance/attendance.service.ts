@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import {
   AttendanceDecision,
   AttendanceEventType,
@@ -417,6 +417,154 @@ export class AttendanceService {
 
       return approval;
     });
+  }
+
+  async recordAttendanceReview(
+    sessionId: string,
+    reviewerId: string,
+    note?: string,
+    scopeBranchId?: string,
+  ) {
+    const session = await this.prisma.attendanceSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            fullName: true,
+            employeeCode: true,
+            branchId: true,
+            departmentId: true,
+            department: { select: { id: true, name: true } },
+          },
+        },
+        branch: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+        flags: {
+          select: {
+            id: true,
+            attendanceSessionId: true,
+            code: true,
+            message: true,
+            severity: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!session) {
+      throw new NotFoundException(ERROR_MESSAGES.ATTENDANCE.NOT_FOUND);
+    }
+
+    if (scopeBranchId && session.branchId !== scopeBranchId) {
+      throw new ForbiddenException('You do not have access to this attendance session');
+    }
+
+    if (!session.checkInAt) {
+      throw new BadRequestException('Attendance session is missing check-in time');
+    }
+
+    const nextStatus = this.resolveRecordedStatus(session.checkInAt, session.checkOutAt);
+    const totalMinutes = session.checkOutAt
+      ? calculateMinutesBetween(session.checkInAt, session.checkOutAt)
+      : session.totalMinutes;
+    const overtimeMinutes =
+      session.checkOutAt && totalMinutes !== null
+        ? calculateOvertimeMinutes(totalMinutes, BUSINESS_RULES.DEFAULT_WORKING_MINUTES)
+        : session.overtimeMinutes;
+
+    return this.prisma.$transaction(async (tx) => {
+      const updatedSession = await tx.attendanceSession.update({
+        where: { id: sessionId },
+        data: {
+          status: nextStatus,
+          totalMinutes,
+          overtimeMinutes,
+          isFlagged: false,
+          riskScore: 0,
+        },
+        include: {
+          employee: {
+            select: {
+              id: true,
+              fullName: true,
+              employeeCode: true,
+              branchId: true,
+              departmentId: true,
+              department: { select: { id: true, name: true } },
+            },
+          },
+          branch: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
+          flags: {
+            select: {
+              id: true,
+              attendanceSessionId: true,
+              code: true,
+              message: true,
+              severity: true,
+              createdAt: true,
+            },
+          },
+        },
+      });
+
+      await tx.attendanceFlag.deleteMany({
+        where: { attendanceSessionId: sessionId },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: reviewerId,
+          action: 'RECORD_ATTENDANCE_AFTER_REVIEW',
+          entityType: 'AttendanceSession',
+          entityId: sessionId,
+          metadataJson: {
+            sessionId,
+            previousStatus: session.status,
+            nextStatus,
+            previousRiskScore: session.riskScore,
+            previousFlagCount: session.flags.length,
+            ...(note ? { note } : {}),
+          },
+        },
+      });
+
+      return {
+        ...updatedSession,
+        flags: [],
+      };
+    });
+  }
+
+  private resolveRecordedStatus(checkInAt: Date, checkOutAt: Date | null): AttendanceStatus {
+    let status = isLateCheckIn(checkInAt, BUSINESS_RULES.CHECK_IN_HOUR_THRESHOLD)
+      ? AttendanceStatus.LATE
+      : AttendanceStatus.ON_TIME;
+
+    if (checkOutAt) {
+      const totalMinutes = calculateMinutesBetween(checkInAt, checkOutAt);
+      const overtimeMinutes = calculateOvertimeMinutes(totalMinutes, BUSINESS_RULES.DEFAULT_WORKING_MINUTES);
+
+      if (overtimeMinutes > 0) {
+        status = AttendanceStatus.OVERTIME;
+      } else if (totalMinutes < BUSINESS_RULES.DEFAULT_WORKING_MINUTES) {
+        status = AttendanceStatus.EARLY_CHECKOUT;
+      }
+    }
+
+    return status;
   }
 
   private calculateRiskScore(

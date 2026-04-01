@@ -13,7 +13,7 @@ Current local defaults expect:
 
 - PostgreSQL on `localhost:5432`
 - Database name `smart_attendance`
-- Database user `postgres`
+- Database user `mtc_admin`
 - Redis is optional for boot, not required for the local start path
 
 ### 2. Verify PostgreSQL

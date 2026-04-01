@@ -92,3 +92,11 @@ export class ManualCorrectionDto {
   @IsISO8601()
   requestedCheckOutAt?: string;
 }
+
+export class RecordAttendanceReviewDto {
+  @ApiPropertyOptional({ description: 'Optional reviewer note kept in audit logs' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+}

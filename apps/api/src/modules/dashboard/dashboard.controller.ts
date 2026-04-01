@@ -10,6 +10,15 @@ import { JwtAuthGuard, RolesGuard, Roles, UserRole, CurrentUser } from '@/common
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
+  private parseNumberQuery(value?: string): number | undefined {
+    if (value === undefined || value === '') {
+      return undefined;
+    }
+
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
   private resolveManagerBranchId(
     role: UserRole,
     employee: { branchId?: string | null } | null | undefined,
@@ -93,6 +102,30 @@ export class DashboardController {
     @Query('branchId') branchId?: string,
   ) {
     return this.dashboardService.getHeatmap(this.resolveManagerBranchId(role, employee, branchId));
+  }
+
+  @Get('review-queue')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @ApiOperation({ summary: 'Get review-ready attendance sessions' })
+  @ApiResponse({ status: 200, description: 'Review queue data' })
+  getReviewQueue(
+    @CurrentUser('role') role: UserRole,
+    @CurrentUser('employee') employee: { branchId?: string | null } | null,
+    @Query('branchId') branchId?: string,
+    @Query('departmentId') departmentId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.dashboardService.getReviewQueue({
+      branchId: this.resolveManagerBranchId(role, employee, branchId),
+      departmentId,
+      from: from ? new Date(from) : undefined,
+      to: to ? new Date(to) : undefined,
+      page: this.parseNumberQuery(page),
+      pageSize: this.parseNumberQuery(pageSize),
+    });
   }
 }
 

@@ -65,6 +65,10 @@ export default function AttendancePage() {
         setPendingAction(null);
       }
     } catch (err) {
+      if (pendingAction) {
+        return;
+      }
+
       const message = err instanceof Error && err.message === 'NETWORK_OFFLINE'
         ? 'Bạn đang offline. Không thể tải dữ liệu chấm công hôm nay.'
         : 'Không thể tải dữ liệu chấm công hôm nay. Vui lòng thử lại.';

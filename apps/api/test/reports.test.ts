@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert';
+import { AttendanceStatus } from '../src/common';
 import type { PrismaService } from '../src/common';
 import {
   MAX_REPORT_PAGE_SIZE,
@@ -7,22 +8,47 @@ import {
 } from '../src/modules/reports/reports.service';
 
 type AttendanceSessionRecord = {
+  id: string;
+  employeeId: string;
+  branchId: string;
   workDate: Date;
-  status: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  status: AttendanceStatus | null;
   checkInAt: Date | null;
   checkOutAt: Date | null;
   totalMinutes: number | null;
   overtimeMinutes: number | null;
-  isFlagged: boolean;
   riskScore: number;
+  isFlagged: boolean;
   employee: {
+    id: string;
     employeeCode: string;
     fullName: string;
+    branchId: string;
+    departmentId: string | null;
+    department: { id: string; name: string } | null;
   };
   branch: {
+    id: string;
     code: string;
     name: string;
   };
+  flags: Array<{
+    id: string;
+    code: string;
+    message: string;
+    severity: 'LOW' | 'MEDIUM' | 'HIGH';
+    createdAt: Date;
+  }>;
+  events: Array<{
+    id: string;
+    type: string;
+    occurredAt: Date;
+    accuracyMeters: number | null;
+    distanceMeters: number | null;
+    decision: string | null;
+  }>;
 };
 
 function createServiceFixture(options: {
@@ -32,17 +58,66 @@ function createServiceFixture(options: {
   let lastFindManyArgs: Record<string, unknown> | null = null;
   let lastCountArgs: Record<string, unknown> | null = null;
 
+  const matchesWhere = (session: AttendanceSessionRecord, where?: Record<string, unknown>): boolean => {
+    if (!where) return true;
+
+    const andConditions = Array.isArray(where.AND) ? (where.AND as Record<string, unknown>[]) : [];
+    if (andConditions.some((condition) => !matchesWhere(session, condition))) {
+      return false;
+    }
+
+    const orConditions = Array.isArray(where.OR) ? (where.OR as Record<string, unknown>[]) : [];
+    if (orConditions.length > 0 && !orConditions.some((condition) => matchesWhere(session, condition))) {
+      return false;
+    }
+
+    if (where.branchId !== undefined && session.branchId !== where.branchId) return false;
+    if (where.employeeId !== undefined && session.employeeId !== where.employeeId) return false;
+    if (where.isFlagged !== undefined && session.isFlagged !== where.isFlagged) return false;
+
+    if (where.status !== undefined) {
+      if (where.status === null) {
+        if (session.status !== null) return false;
+      } else if (typeof where.status === 'object' && where.status !== null) {
+        const statusFilter = where.status as { not?: unknown };
+        if ('not' in statusFilter && statusFilter.not === null && session.status === null) {
+          return false;
+        }
+      } else if (session.status !== where.status) {
+        return false;
+      }
+    }
+
+    if (where.workDate && typeof where.workDate === 'object') {
+      const workDateFilter = where.workDate as { gte?: Date; lte?: Date; lt?: Date };
+      if (workDateFilter.gte && session.workDate < workDateFilter.gte) return false;
+      if (workDateFilter.lte && session.workDate > workDateFilter.lte) return false;
+      if (workDateFilter.lt && session.workDate >= workDateFilter.lt) return false;
+    }
+
+    if (where.employee && typeof where.employee === 'object') {
+      const employeeFilter = where.employee as { departmentId?: string | null };
+      if (employeeFilter.departmentId !== undefined && session.employee.departmentId !== employeeFilter.departmentId) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   const prisma = {
     attendanceSession: {
       findMany: async (args: Record<string, unknown>) => {
         lastFindManyArgs = args;
         const take = typeof args.take === 'number' ? args.take : options.sessions.length;
         const skip = typeof args.skip === 'number' ? args.skip : 0;
-        return options.sessions.slice(skip, skip + take);
+        const where = args.where as Record<string, unknown> | undefined;
+        return options.sessions.filter((session) => matchesWhere(session, where)).slice(skip, skip + take);
       },
       count: async (args: Record<string, unknown>) => {
         lastCountArgs = args;
-        return options.total;
+        const where = args.where as Record<string, unknown> | undefined;
+        return options.sessions.filter((session) => matchesWhere(session, where)).length;
       },
     },
   } as unknown as PrismaService;
@@ -56,24 +131,69 @@ function createServiceFixture(options: {
 
 function createSession(index: number): AttendanceSessionRecord {
   const day = String((index % 28) + 1).padStart(2, '0');
+  const isFlagged = index % 4 === 0;
+  const isUnrecorded = index % 5 === 0;
 
   return {
+    id: `session-${index + 1}`,
+    employeeId: `employee-${index + 1}`,
+    branchId: `branch-${(index % 3) + 1}`,
     workDate: new Date(`2026-04-${day}T00:00:00.000Z`),
-    status: index % 2 === 0 ? 'ON_TIME' : 'LATE',
+    createdAt: new Date(`2026-04-${day}T07:55:00.000Z`),
+    updatedAt: new Date(`2026-04-${day}T17:05:00.000Z`),
+    status: isUnrecorded ? null : index % 2 === 0 ? 'ON_TIME' : 'LATE',
     checkInAt: new Date(`2026-04-${day}T08:00:00.000Z`),
-    checkOutAt: new Date(`2026-04-${day}T17:00:00.000Z`),
+    checkOutAt: isUnrecorded ? null : new Date(`2026-04-${day}T17:00:00.000Z`),
     totalMinutes: 540,
     overtimeMinutes: 60,
-    isFlagged: index % 10 === 0,
-    riskScore: index % 10 === 0 ? 25 : 5,
+    riskScore: isFlagged ? 25 : 5,
+    isFlagged,
     employee: {
+      id: `employee-${index + 1}`,
       employeeCode: `EMP${String(index + 1).padStart(5, '0')}`,
       fullName: `Employee ${index + 1}`,
+      branchId: `branch-${(index % 3) + 1}`,
+      departmentId: index % 2 === 0 ? 'dept-1' : null,
+      department: index % 2 === 0 ? { id: 'dept-1', name: 'Operations' } : null,
     },
     branch: {
+      id: `branch-${(index % 3) + 1}`,
       code: `B${String((index % 9) + 1).padStart(3, '0')}`,
       name: `Branch ${index + 1}`,
     },
+    flags: isFlagged
+      ? [
+          {
+            id: `flag-${index + 1}`,
+            code: 'RISK_SCORE',
+            message: 'High risk score',
+            severity: 'HIGH',
+            createdAt: new Date(`2026-04-${day}T08:05:00.000Z`),
+          },
+        ]
+      : [],
+    events: [
+      {
+        id: `event-${index + 1}-in`,
+        type: 'CHECK_IN',
+        occurredAt: new Date(`2026-04-${day}T08:00:00.000Z`),
+        accuracyMeters: 12,
+        distanceMeters: 40,
+        decision: 'ALLOW',
+      },
+      ...(isUnrecorded
+        ? []
+        : [
+            {
+              id: `event-${index + 1}-out`,
+              type: 'CHECK_OUT',
+              occurredAt: new Date(`2026-04-${day}T17:00:00.000Z`),
+              accuracyMeters: 12,
+              distanceMeters: 40,
+              decision: 'ALLOW',
+            },
+          ]),
+    ],
   };
 }
 
@@ -109,6 +229,29 @@ async function main() {
     sessions,
     total: sessions.length,
   });
+
+  const reviewReport = await fixture.service.getAttendanceReport({
+    from: new Date('2026-04-01T00:00:00.000Z'),
+    to: new Date('2026-04-30T23:59:59.999Z'),
+    needsReview: true,
+  });
+
+  assert.equal(
+    reviewReport.items.every((item) => item.review.requiresReview),
+    true,
+  );
+  assert.equal(
+    reviewReport.items.every((item) => item.review.state !== 'RECORDED'),
+    true,
+  );
+  assert.equal(
+    reviewReport.items.every((item) => item.isFlagged || item.status === null),
+    true,
+  );
+  assert.equal(
+    reviewReport.items.some((item) => item.flags.length > 0),
+    true,
+  );
 
   const report = await fixture.service.getAttendanceReport({
     from: new Date('2026-04-01T00:00:00.000Z'),

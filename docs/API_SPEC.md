@@ -1,5 +1,7 @@
 # API Spec
 
+Tài liệu này mô tả shape và hành vi API theo implementation hiện tại.
+
 Base URL: `/api`
 
 ## Auth
@@ -53,9 +55,20 @@ Response:
   "attendanceStatus": "ON_TIME",
   "riskLevel": "LOW",
   "distanceMeters": 23.4,
-  "flagged": false
+  "recorded": true,
+  "flagged": false,
+  "message": "Check-in successful",
+  "riskScore": 0,
+  "flags": []
 }
 ```
+
+Lưu ý:
+
+- nếu risk cao, API hiện vẫn có thể trả `status: "SUCCESS"`
+- khi đó `recorded` có thể là `false`
+- `attendanceStatus` có thể là `null`
+- `flags` sẽ cho biết lý do cần review
 
 ### POST /attendance/check-out
 Body tương tự check-in.
@@ -69,7 +82,6 @@ Query:
 - `limit`
 - `from`
 - `to`
-- `status`
 
 ### POST /attendance/manual-requests
 Body:
@@ -162,6 +174,12 @@ Query:
 - `page`
 - `pageSize`
 
+Mỗi item report hiện bao gồm thêm:
+
+- `recorded`
+- `flagged`
+- `riskScore`
+
 ### GET /reports/export
 Query:
 - `from`
@@ -182,6 +200,22 @@ Response:
 }
 ```
 If the report exceeds `limit`, `exportedCount` is capped at `limit` and `truncated` becomes `true`.
+
+CSV hiện có các cột:
+
+- `date`
+- `employee_code`
+- `employee_name`
+- `branch_code`
+- `branch_name`
+- `check_in`
+- `check_out`
+- `total_minutes`
+- `overtime_minutes`
+- `status`
+- `recorded`
+- `flagged`
+- `risk_score`
 
 ### GET /reports/download
 Query:

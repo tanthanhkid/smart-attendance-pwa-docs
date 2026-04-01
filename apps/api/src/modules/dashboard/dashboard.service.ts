@@ -1,17 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { AttendanceStatus, PrismaService } from '@/common';
 import { Prisma } from '@prisma/client';
+import { ReportsService } from '../reports';
+import type {
+  AttendanceDashboardSummary,
+} from '@smart-attendance/shared-types';
 
 @Injectable()
 export class DashboardService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private reportsService: ReportsService,
+  ) {}
 
   async getSystemSummary(params: {
     from?: Date;
     to?: Date;
     branchId?: string;
     departmentId?: string;
-  }) {
+  }): Promise<AttendanceDashboardSummary> {
     const { from, to, branchId, departmentId } = params;
 
     const whereClause: Prisma.AttendanceSessionWhereInput = {};
@@ -43,13 +50,19 @@ export class DashboardService {
       status: null,
     };
 
-    const [totalEmployees, totalSessions, flaggedSessions, lateSessions, recordedSessions, unrecordedSessions] = await Promise.all([
+    const reviewRequiredWhereClause: Prisma.AttendanceSessionWhereInput = {
+      ...whereClause,
+      OR: [{ status: null }, { isFlagged: true }],
+    };
+
+    const [totalEmployees, totalSessions, flaggedSessions, lateSessions, recordedSessions, unrecordedSessions, reviewRequiredSessions] = await Promise.all([
       this.prisma.employee.count({ where: employeeScope }),
       this.prisma.attendanceSession.count({ where: whereClause }),
       this.prisma.attendanceSession.count({ where: { ...whereClause, isFlagged: true } }),
       this.prisma.attendanceSession.count({ where: { ...whereClause, status: AttendanceStatus.LATE } }),
       this.prisma.attendanceSession.count({ where: recordedWhereClause }),
       this.prisma.attendanceSession.count({ where: unrecordedWhereClause }),
+      this.prisma.attendanceSession.count({ where: reviewRequiredWhereClause }),
     ]);
 
     const branchCount = branchId || departmentId
@@ -67,6 +80,7 @@ export class DashboardService {
       totalSessions,
       recordedSessions,
       unrecordedSessions,
+      reviewRequiredSessions,
       flaggedSessions,
       lateSessions,
       branchCount,
@@ -81,7 +95,13 @@ export class DashboardService {
     const nextDay = new Date(targetDate);
     nextDay.setDate(nextDay.getDate() + 1);
 
-    const [branch, totalEmployees, checkedIn, unrecordedCount, lateCount, flaggedCount] = await Promise.all([
+    const reviewRequiredWhereClause: Prisma.AttendanceSessionWhereInput = {
+      branchId,
+      workDate: { gte: targetDate, lt: nextDay },
+      OR: [{ status: null }, { isFlagged: true }],
+    };
+
+    const [branch, totalEmployees, checkedIn, unrecordedCount, lateCount, flaggedCount, reviewRequiredCount] = await Promise.all([
       this.prisma.branch.findUnique({
         where: { id: branchId },
         include: { geofence: true },
@@ -117,6 +137,7 @@ export class DashboardService {
           isFlagged: true,
         },
       }),
+      this.prisma.attendanceSession.count({ where: reviewRequiredWhereClause }),
     ]);
 
     return {
@@ -127,6 +148,7 @@ export class DashboardService {
       notCheckedIn: totalEmployees - checkedIn,
       lateCount,
       flaggedCount,
+      reviewRequiredCount,
       attendanceRate: totalEmployees > 0 ? Math.round((checkedIn / totalEmployees) * 100) : 0,
     };
   }
@@ -222,5 +244,37 @@ export class DashboardService {
       pageSize,
       totalPages: Math.ceil(total.length / pageSize),
     };
+  }
+
+  async getReviewQueue(params: {
+    branchId?: string;
+    departmentId?: string;
+    from?: Date;
+    to?: Date;
+    page?: number;
+    pageSize?: number;
+  }): ReturnType<ReportsService['getAttendanceReport']> {
+    const from = params.from ?? (() => {
+      const rangeStart = new Date();
+      rangeStart.setDate(rangeStart.getDate() - 6);
+      rangeStart.setHours(0, 0, 0, 0);
+      return rangeStart;
+    })();
+
+    const to = params.to ?? (() => {
+      const rangeEnd = new Date();
+      rangeEnd.setHours(23, 59, 59, 999);
+      return rangeEnd;
+    })();
+
+    return this.reportsService.getAttendanceReport({
+      from,
+      to,
+      branchId: params.branchId,
+      departmentId: params.departmentId,
+      needsReview: true,
+      page: params.page,
+      pageSize: params.pageSize,
+    });
   }
 }
