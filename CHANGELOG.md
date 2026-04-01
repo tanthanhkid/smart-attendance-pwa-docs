@@ -12,6 +12,7 @@ The format is inspired by Keep a Changelog.
 - `docs/CURRENT_STATE.md` làm nguồn mô tả implementation hiện tại
 - `CONTRIBUTING.md`
 - `CHANGELOG.md`
+- manager report UI hiển thị tọa độ check-in/check-out và mở trực tiếp vị trí chấm công trên Google Maps
 
 ### Changed
 

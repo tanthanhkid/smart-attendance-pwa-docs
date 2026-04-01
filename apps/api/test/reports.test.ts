@@ -45,6 +45,8 @@ type AttendanceSessionRecord = {
     id: string;
     type: string;
     occurredAt: Date;
+    latitude: number | null;
+    longitude: number | null;
     accuracyMeters: number | null;
     distanceMeters: number | null;
     decision: string | null;
@@ -177,6 +179,8 @@ function createSession(index: number): AttendanceSessionRecord {
         id: `event-${index + 1}-in`,
         type: 'CHECK_IN',
         occurredAt: new Date(`2026-04-${day}T08:00:00.000Z`),
+        latitude: 10.75 + index / 1000,
+        longitude: 106.67 + index / 1000,
         accuracyMeters: 12,
         distanceMeters: 40,
         decision: 'ALLOW',
@@ -188,6 +192,8 @@ function createSession(index: number): AttendanceSessionRecord {
               id: `event-${index + 1}-out`,
               type: 'CHECK_OUT',
               occurredAt: new Date(`2026-04-${day}T17:00:00.000Z`),
+              latitude: 10.75 + index / 1000,
+              longitude: 106.67 + index / 1000,
               accuracyMeters: 12,
               distanceMeters: 40,
               decision: 'ALLOW',
@@ -252,6 +258,8 @@ async function main() {
     reviewReport.items.some((item) => item.flags.length > 0),
     true,
   );
+  assert.equal(reviewReport.items[0]?.checkInEvent?.latitude != null, true);
+  assert.equal(reviewReport.items[0]?.checkInEvent?.longitude != null, true);
 
   const report = await fixture.service.getAttendanceReport({
     from: new Date('2026-04-01T00:00:00.000Z'),

@@ -180,6 +180,8 @@ Server xử lý:
 - `recorded`
 - `flagged`
 - `risk_score`
+- `checkInEvent.latitude` / `checkInEvent.longitude`
+- `checkOutEvent.latitude` / `checkOutEvent.longitude`
 
 ### Dashboard
 
@@ -198,6 +200,7 @@ Manager/Admin hiện có thể:
 
 - xem danh sách session bị cờ hoặc chưa ghi nhận
 - xem risk score, accuracy, khoảng cách so với chi nhánh
+- mở nhanh vị trí check-in/check-out thực tế trên Google Maps ngay trong report UI
 - mở sang report để rà soát sâu hơn
 - ghi nhận thủ công một attendance session chưa được record
 
