@@ -8,6 +8,7 @@ Repo hiện đã có automated tests cho:
 - high-risk check-in nhưng không ghi nhận
 - duplicate nonce handling
 - reports CSV/export behavior
+- reports export full dataset behavior khi số dòng vượt 1000
 - seed helper behavior
 - manager branch scoping
 - manual correction flow
@@ -26,6 +27,9 @@ Chưa có frontend integration test hoặc browser e2e hoàn chỉnh.
 - check-out thành công
 - history hiển thị warning đúng
 - dashboard manager/admin phản ánh `flagged` và `unrecorded`
+- review queue không bị thiếu case khi dữ liệu vượt quá trang đầu
+- report summary card khớp với toàn bộ dữ liệu sau filter
+- export CSV khớp đúng filter đang chọn trên report UI
 - PWA install prompt đóng xong không hiện lại trong 5 ngày
 - offline queue cho attendance request
 
@@ -41,7 +45,7 @@ Chưa có frontend integration test hoặc browser e2e hoàn chỉnh.
 - seed lớn hơn demo data
 - simulate burst check-in
 - inspect API p95 cho attendance/report
-- đánh giá pagination và export cap
+- đánh giá pagination và thời gian export lớn
 
 ## 6. Ghi chú
 

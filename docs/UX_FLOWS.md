@@ -41,18 +41,26 @@
 
 Ghi chú:
 
-- UI manager/admin hiện mới có dashboard cơ bản
+- UI manager/admin hiện có dashboard, review queue, report và admin settings
 - backend đã có thêm endpoint report/approval beyond current UI
 
-## 5. Admin branch setup
+## 5. Manager review và report
+
+1. Vào `Review queue` hoặc `Báo cáo`
+2. Chọn khoảng ngày và branch scope phù hợp
+3. UI tải toàn bộ kết quả sau filter trước khi tính summary card
+4. Nếu export CSV, request dùng đúng các filter đang áp dụng trên table
+5. Manager có thể ghi nhận session chưa record hoặc chuyển sang report để rà sâu hơn
+
+## 6. Admin branch setup
 
 1. Tạo branch
 2. Chọn tọa độ tâm
 3. Chỉnh radius geofence
-4. Lưu branch/geofence
-5. Gán manager hoặc employee qua backend flow
+4. Lưu branch/geofence trong `dashboard/settings`
+5. Gán manager hoặc employee ngay trong admin settings UI
 
-## 6. Empty và error states
+## 7. Empty và error states
 
 - mất mạng
 - chưa cấp quyền vị trí
@@ -62,7 +70,7 @@ Ghi chú:
 - token hết hạn
 - dashboard không tải được dữ liệu
 
-## 7. PWA behavior
+## 8. PWA behavior
 
 - install prompt có thể đóng
 - sau khi bấm `Đóng`, prompt bị ẩn 5 ngày trên cùng trình duyệt

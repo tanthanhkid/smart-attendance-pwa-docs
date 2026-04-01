@@ -171,6 +171,9 @@ Query:
 - `departmentId`
 - `employeeId`
 - `status`
+- `needsReview`
+- `recorded`
+- `flagged`
 - `page`
 - `pageSize`
 
@@ -186,6 +189,10 @@ Query:
 - `to`
 - `branchId`
 - `departmentId`
+- `status`
+- `needsReview`
+- `recorded`
+- `flagged`
 
 Response:
 ```json
@@ -195,11 +202,16 @@ Response:
   "totalMatched": 128,
   "exportedCount": 128,
   "truncated": false,
-  "limit": 1000,
-  "downloadUrl": "/api/reports/download?from=2026-04-01&to=2026-04-30"
+  "limit": 128,
+  "downloadUrl": "/api/reports/download?from=2026-04-01&to=2026-04-30&needsReview=true"
 }
 ```
-If the report exceeds `limit`, `exportedCount` is capped at `limit` and `truncated` becomes `true`.
+
+Ghi chú:
+
+- export metadata và download hiện nhận cùng bộ filter với `/reports/attendance`
+- implementation hiện tại không còn cắt ngầm export ở 1000 dòng; `truncated` giữ vai trò metadata dự phòng
+- `limit` phản ánh số dòng đã export trong response hiện tại
 
 CSV hiện có các cột:
 
@@ -223,6 +235,10 @@ Query:
 - `to`
 - `branchId`
 - `departmentId`
+- `status`
+- `needsReview`
+- `recorded`
+- `flagged`
 
 Response:
 - `text/csv` download

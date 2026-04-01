@@ -45,7 +45,7 @@ scripts/        # local utility scripts
 
 ### Chưa hoàn thiện hoàn toàn
 
-- frontend admin/manager hiện đã có dashboard, review queue và report UI, nhưng chưa phủ toàn bộ CRUD quản trị
+- frontend admin/manager hiện đã có dashboard, review queue, report UI và admin settings cho geofence/manager assignment, nhưng chưa phủ toàn bộ CRUD quản trị
 - export hiện là sync CSV, chưa có background export queue
 - Redis hiện chưa là dependency bắt buộc cho đường local boot
 - một số docs cũ trong repo mang tính định hướng hơn là phản ánh 100% implementation
@@ -116,6 +116,7 @@ Seed local mặc định hiện tại tạo:
 - `/dashboard`
 - `/dashboard/reviews`
 - `/dashboard/reports`
+- `/dashboard/settings`
 
 ### Ghi chú
 
@@ -177,11 +178,19 @@ Server xử lý:
 `GET /reports/attendance` và CSV export hiện đã có:
 
 - `status`
+- `needsReview`
 - `recorded`
 - `flagged`
 - `risk_score`
 - `checkInEvent.latitude` / `checkInEvent.longitude`
 - `checkOutEvent.latitude` / `checkOutEvent.longitude`
+
+Report UI hiện tại:
+
+- tải đủ các trang của kết quả filter trước khi tính summary card
+- dùng local day cho filter mặc định thay vì lấy ngày UTC
+- export CSV dùng cùng bộ filter với table đang xem
+- không còn cắt ngầm export ở 1000 dòng trong implementation hiện tại
 
 ### Dashboard
 
@@ -203,6 +212,16 @@ Manager/Admin hiện có thể:
 - mở nhanh vị trí check-in/check-out thực tế trên Google Maps ngay trong report UI
 - mở sang report để rà soát sâu hơn
 - ghi nhận thủ công một attendance session chưa được record
+- xem stats được tính từ toàn bộ kết quả filter thay vì chỉ trang đầu
+
+### Admin settings
+
+Admin hiện có thể:
+
+- cấu hình geofence cho từng branch ngay trên web UI
+- chỉnh latitude, longitude, radius cho branch
+- gán nhân viên về đúng branch và manager trực tiếp
+- đồng bộ scope manager để dashboard, review queue và report phản ánh đúng tập nhân sự được gán
 
 ## 10. Database model thực tế
 
@@ -227,6 +246,7 @@ Các model chính hiện có trong Prisma schema:
 Backend hiện đã có test cho:
 
 - reports CSV/export behavior
+- reports export không cắt ngầm dữ liệu khi vượt 1000 dòng
 - seed helpers
 - manager branch scoping
 - manual correction flow

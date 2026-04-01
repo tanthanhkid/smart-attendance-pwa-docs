@@ -14,6 +14,7 @@ Smart Attendance PWA is a public monorepo for a branch-aware attendance system b
 - Risk-aware attendance flow with geofence, distance, accuracy, and speed checks
 - Manager review queue for unrecorded or flagged sessions
 - Attendance reports with CSV export and direct Google Maps links for event coordinates
+- Admin settings for branch geofence and manager assignment
 - Offline-friendly web app with queued attendance requests
 - Public deployment behind Nginx with separate web and API runtimes
 
@@ -32,6 +33,8 @@ Current important behavior:
 - sessions can remain `unrecorded` until reviewed by a manager
 - reports and dashboard surfaces clearly distinguish recorded and unrecorded attendance
 - flagged sessions keep their risk score, review reasons, and raw location metadata
+- review and report screens load the full filtered result set before deriving headline stats
+- CSV export uses the same active report filters as the on-screen table
 
 ## Feature Set
 
@@ -50,6 +53,7 @@ Current important behavior:
 - attendance reporting with filters
 - CSV export
 - event coordinate inspection through Google Maps links in reports
+- admin settings for branch geofence and manager-to-employee assignment
 
 ## Architecture
 
